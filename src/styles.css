@@ -120,3 +120,133 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+@keyframes login-shape-float-a {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(10px, -14px);
+  }
+}
+
+@keyframes login-shape-float-b {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-12px, 10px);
+  }
+}
+
+@keyframes login-shape-float-c {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(8px, 12px) rotate(2deg);
+  }
+}
+
+.login-shape {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.login-shape-1 {
+  animation: login-shape-float-a 9s ease-in-out infinite;
+}
+
+.login-shape-2 {
+  animation: login-shape-float-b 11s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+.login-shape-3 {
+  animation: login-shape-float-c 10s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.login-shape-4 {
+  animation: login-shape-float-a 8s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+.login-shape-5 {
+  animation: login-shape-float-b 12s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+.login-shape-6 {
+  animation: login-shape-float-c 9.5s ease-in-out infinite;
+  animation-delay: -5s;
+}
+
+.login-shape-7 {
+  animation: login-shape-float-a 10.5s ease-in-out infinite;
+  animation-delay: -2.5s;
+}
+
+.login-shape-8 {
+  animation: login-shape-float-b 8.5s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shape {
+    animation: none !important;
+  }
+
+  .login-submit-btn::before {
+    animation: none !important;
+  }
+}
+
+@keyframes login-btn-shine {
+  0% {
+    transform: translateX(-160%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(260%) skewX(-20deg);
+  }
+}
+
+.login-submit-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: filter 0.2s ease;
+}
+
+.login-submit-btn:hover {
+  filter: brightness(1.05);
+}
+
+.login-submit-btn-label {
+  position: relative;
+  z-index: 2;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.login-submit-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 70%
+  );
+  transform: translateX(-160%) skewX(-20deg);
+  animation: login-btn-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}

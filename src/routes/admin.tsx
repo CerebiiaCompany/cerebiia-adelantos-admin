@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { isLoggedIn, logout } from "@/lib/auth";
+import { isLoggedIn, logout, validateSession, getStoredUser } from "@/lib/auth";
+import type { AuthUser } from "@/lib/api/types";
 import { AdminStoreProvider } from "@/lib/admin-store";
 import { LayoutDashboard, Building2, Wallet, LogOut, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,14 +19,50 @@ const nav = [
 function AdminLayout() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (!isLoggedIn()) navigate({ to: "/login" });
-    else setReady(true);
+    let cancelled = false;
+
+    async function checkSession() {
+      if (!isLoggedIn()) {
+        navigate({ to: "/login" });
+        return;
+      }
+
+      const sessionUser = await validateSession();
+      if (cancelled) return;
+
+      if (!sessionUser) {
+        navigate({ to: "/login" });
+        return;
+      }
+
+      setUser(sessionUser);
+      setReady(true);
+    }
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      navigate({ to: "/login" });
+    }
+  };
+
   if (!ready) return null;
+
+  const displayUser = user ?? getStoredUser();
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -67,17 +104,17 @@ function AdminLayout() {
 
           <div className="mt-auto border-t border-sidebar-border pt-3 space-y-2">
             <div className="px-3 py-2 text-xs">
-              <div className="text-foreground font-medium">admin@panel.co</div>
-              <div className="text-muted-foreground">Super-admin</div>
+              <div className="text-foreground font-medium">{displayUser?.email ?? "—"}</div>
+              <div className="text-muted-foreground">
+                {displayUser?.full_name ?? "Super administrador"}
+              </div>
             </div>
             <Button
               variant="ghost"
               size="sm"
               className="w-full justify-start text-muted-foreground"
-              onClick={() => {
-                logout();
-                navigate({ to: "/login" });
-              }}
+              disabled={loggingOut}
+              onClick={handleLogout}
             >
               <LogOut className="size-4 mr-2" />
               Cerrar sesión
