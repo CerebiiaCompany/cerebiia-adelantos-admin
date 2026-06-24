@@ -35,7 +35,7 @@ function LoginPage() {
           className="absolute inset-0 opacity-40"
           style={{
             backgroundImage:
-              "radial-gradient(600px circle at 20% 30%, oklch(0.86 0.22 130 / 0.18), transparent 60%), radial-gradient(500px circle at 80% 80%, oklch(0.72 0.14 230 / 0.15), transparent 60%)",
+              "radial-gradient(600px circle at 20% 30%, oklch(0.55 0.19 250 / 0.10), transparent 60%), radial-gradient(500px circle at 80% 80%, oklch(0.72 0.14 230 / 0.08), transparent 60%)",
           }}
         />
         <div className="relative flex items-center gap-2">
