@@ -1,6 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { login, validateSession, AuthError } from "@/lib/auth";
+import {
+  clearLoginCredentials,
+  readRememberLoginPreference,
+  readSavedLoginCredentials,
+  saveLoginCredentials,
+} from "@/lib/login-credentials";
 import { ApiError } from "@/lib/api/errors";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,13 +112,22 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
+  const [email, setEmail] = useState(() => readSavedLoginCredentials()?.email ?? "");
+  const [pass, setPass] = useState(() => readSavedLoginCredentials()?.password ?? "");
   const [showPass, setShowPass] = useState(false);
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(() => readRememberLoginPreference());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+
+  const handleRememberChange = (checked: boolean) => {
+    setRemember(checked);
+    if (!checked) {
+      clearLoginCredentials();
+      setEmail("");
+      setPass("");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +150,11 @@ function LoginPage() {
 
     try {
       await login(email, pass, remember);
+      if (remember) {
+        saveLoginCredentials(email, pass);
+      } else {
+        clearLoginCredentials();
+      }
       navigate({ to: "/admin" });
     } catch (err) {
       if (err instanceof AuthError || err instanceof ApiError) {
@@ -288,6 +308,7 @@ function LoginPage() {
                       type={showPass ? "text" : "password"}
                       value={pass}
                       onChange={(e) => setPass(e.target.value)}
+                      placeholder="Tu contraseña"
                       className="login-field-input login-input-surface pl-11 pr-11 h-12 rounded-xl border-border/80 text-base"
                       required
                     />
@@ -307,7 +328,7 @@ function LoginPage() {
                 <Checkbox
                   id="remember"
                   checked={remember}
-                  onCheckedChange={(v) => setRemember(v === true)}
+                  onCheckedChange={(v) => handleRememberChange(v === true)}
                 />
                 <Label htmlFor="remember" className="login-checkbox-label text-muted-foreground cursor-pointer">
                   Recordarme en este dispositivo

@@ -1,12 +1,42 @@
 import { API_BASE_URL } from "./config";
 import { ApiError, parseApiErrorMessage } from "./errors";
-import { getAccessToken } from "@/lib/auth-storage";
+import type { RefreshResponse } from "./types";
+import { clearAuthSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth-storage";
 
 type ApiRequestOptions = RequestInit & {
   auth?: boolean;
 };
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+const NO_REFRESH_PATHS = ["/auth/login/", "/auth/refresh/"];
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessTokenOnce(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refresh = getRefreshToken();
+    if (!refresh) return false;
+
+    try {
+      const data = await executeRequest<RefreshResponse>("/auth/refresh/", {
+        method: "POST",
+        body: JSON.stringify({ refresh }),
+      });
+      updateTokens({ access: data.access, refresh: data.refresh });
+      return true;
+    } catch {
+      clearAuthSession();
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+async function executeRequest<T>(path: string, options: ApiRequestOptions): Promise<T> {
   const { auth = false, headers: initHeaders, ...init } = options;
   const headers = new Headers(initHeaders);
 
@@ -47,6 +77,30 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   return body as T;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+  isRetry = false,
+): Promise<T> {
+  try {
+    return await executeRequest<T>(path, options);
+  } catch (error) {
+    if (
+      !isRetry &&
+      options.auth &&
+      error instanceof ApiError &&
+      error.status === 401 &&
+      !NO_REFRESH_PATHS.includes(path)
+    ) {
+      const refreshed = await refreshAccessTokenOnce();
+      if (refreshed) {
+        return apiRequest<T>(path, options, true);
+      }
+    }
+    throw error;
+  }
 }
 
 function safeJsonParse(text: string): unknown {

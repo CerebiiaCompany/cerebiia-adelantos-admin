@@ -4,9 +4,9 @@ export type Empresa = {
   id: string;
   nombre: string;
   nit: string;
-  sector: string;
   adminNombre: string;
   adminEmail: string;
+  adminPassword: string;
   activa: boolean;
   createdAt: string;
 };
@@ -151,11 +151,11 @@ function seedEmpleados(empresas: Empresa[]): Empleado[] {
 
 function seed(): { empresas: Empresa[]; adelantos: Adelanto[]; empleados: Empleado[] } {
   const empresas: Empresa[] = [
-    { id: "e1", nombre: "TechCorp S.A.S", nit: "900123456-1", sector: "Tecnología", adminNombre: "Laura Méndez", adminEmail: "laura@techcorp.co", activa: true, createdAt: "2025-01-12" },
-    { id: "e2", nombre: "Innovate Ltda", nit: "901234567-2", sector: "Consultoría", adminNombre: "Carlos Ruiz", adminEmail: "carlos@innovate.co", activa: true, createdAt: "2025-02-03" },
-    { id: "e3", nombre: "Verde Energy", nit: "902345678-3", sector: "Energía", adminNombre: "Ana Torres", adminEmail: "ana@verde.co", activa: true, createdAt: "2025-03-20" },
-    { id: "e4", nombre: "Café del Norte", nit: "903456789-4", sector: "Alimentos", adminNombre: "Miguel Soto", adminEmail: "miguel@cafenorte.co", activa: false, createdAt: "2024-11-08" },
-    { id: "e5", nombre: "Logística Andina", nit: "904567890-5", sector: "Transporte", adminNombre: "Diana Pérez", adminEmail: "diana@andina.co", activa: true, createdAt: "2025-04-15" },
+    { id: "e1", nombre: "TechCorp S.A.S", nit: "900123456-1", adminNombre: "Laura Méndez", adminEmail: "laura@techcorp.co", adminPassword: "", activa: true, createdAt: "2025-01-12" },
+    { id: "e2", nombre: "Innovate Ltda", nit: "901234567-2", adminNombre: "Carlos Ruiz", adminEmail: "carlos@innovate.co", adminPassword: "", activa: true, createdAt: "2025-02-03" },
+    { id: "e3", nombre: "Verde Energy", nit: "902345678-3", adminNombre: "Ana Torres", adminEmail: "ana@verde.co", adminPassword: "", activa: true, createdAt: "2025-03-20" },
+    { id: "e4", nombre: "Café del Norte", nit: "903456789-4", adminNombre: "Miguel Soto", adminEmail: "miguel@cafenorte.co", adminPassword: "", activa: false, createdAt: "2024-11-08" },
+    { id: "e5", nombre: "Logística Andina", nit: "904567890-5", adminNombre: "Diana Pérez", adminEmail: "diana@andina.co", adminPassword: "", activa: true, createdAt: "2025-04-15" },
   ];
 
   const bancos = ["Bancolombia", "Davivienda", "BBVA", "Banco de Bogotá", "Nequi"];
@@ -214,7 +214,7 @@ function load(): { empresas: Empresa[]; adelantos: Adelanto[]; empleados: Emplea
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       }
       return {
-        empresas: parsed.empresas ?? [],
+        empresas: (parsed.empresas ?? []).map(normalizeEmpresa),
         adelantos: parsed.adelantos ?? [],
         empleados: parsed.empleados ?? [],
       };
@@ -223,6 +223,14 @@ function load(): { empresas: Empresa[]; adelantos: Adelanto[]; empleados: Emplea
   const seeded = seed();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
   return seeded;
+}
+
+function normalizeEmpresa(raw: Empresa & { sector?: string }): Empresa {
+  const { sector: _sector, ...empresa } = raw;
+  return {
+    ...empresa,
+    adminPassword: empresa.adminPassword ?? "",
+  };
 }
 
 export function AdminStoreProvider({ children }: { children: ReactNode }) {

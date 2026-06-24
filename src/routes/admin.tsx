@@ -6,12 +6,11 @@ import { AdminStoreProvider } from "@/lib/admin-store";
 import { AdminBackground } from "@/components/admin/admin-background";
 import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
-import { AdminSidebarToggle } from "@/components/admin/admin-sidebar-toggle";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
 import { cn } from "@/lib/utils";
-import { Building2, History, LayoutDashboard, Wallet } from "lucide-react";
+import { Building2, History, LayoutDashboard, Settings, Users, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -20,8 +19,10 @@ export const Route = createFileRoute("/admin")({
 const nav: AdminNavItem[] = [
   { to: "/admin", label: "Inicio", icon: LayoutDashboard, exact: true },
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
+  { to: "/admin/usuarios", label: "Usuarios", icon: Users },
   { to: "/admin/adelantos", label: "Adelantos", icon: Wallet },
   { to: "/admin/historial-adelantos", label: "Historial de adelantos", icon: History },
+  { to: "/admin/configuracion", label: "Configuración", icon: Settings },
 ];
 
 function AdminLayout() {
@@ -104,17 +105,13 @@ function AdminLayout() {
   return (
     <AdminStoreProvider>
       <div className="min-h-screen flex text-foreground font-sans">
-        <aside
-          className={cn(
-            "hidden md:flex shrink-0 fixed inset-y-0 left-0 z-40 transition-[width,opacity] duration-300 ease-in-out overflow-hidden",
-            sidebarOpen ? "w-[var(--sidebar-width)] opacity-100" : "w-0 opacity-0 pointer-events-none",
-          )}
-        >
+        <aside className="hidden md:flex shrink-0 fixed inset-y-0 left-0 z-40 transition-[width] duration-300 ease-in-out overflow-hidden">
           <AdminSidebar
             nav={nav}
             pathname={pathname}
             onLogout={handleLogout}
             loggingOut={loggingOut}
+            collapsed={!sidebarOpen}
           />
         </aside>
 
@@ -130,18 +127,20 @@ function AdminLayout() {
           </SheetContent>
         </Sheet>
 
-        <AdminSidebarToggle open={isSidebarVisible} onClick={handleToggleSidebar} />
-
         <div
           className={cn(
             "flex-1 min-w-0 flex flex-col min-h-screen relative transition-[margin] duration-300 ease-in-out",
-            sidebarOpen ? "md:ml-[var(--sidebar-width)]" : "md:ml-0",
+            sidebarOpen
+              ? "md:ml-[var(--sidebar-width)]"
+              : "md:ml-[var(--sidebar-width-icon)]",
           )}
         >
           <AdminTopbar
             user={displayUser}
             onLogout={handleLogout}
             loggingOut={loggingOut}
+            sidebarOpen={isSidebarVisible}
+            onToggleSidebar={handleToggleSidebar}
           />
 
           <main className="relative flex-1">

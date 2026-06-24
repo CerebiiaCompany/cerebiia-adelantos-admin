@@ -19,16 +19,20 @@ export function AdminPageHeader({
   return (
     <header
       className={cn(
-        "flex items-end justify-between flex-wrap gap-4",
+        "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
         className,
       )}
     >
-      <div>
+      <div className="min-w-0 flex-1">
         {eyebrow && <p className="admin-eyebrow">{eyebrow}</p>}
         <h1 className={cn("admin-title", eyebrow && "mt-1")}>{title}</h1>
         {subtitle && <p className="admin-subtitle">{subtitle}</p>}
       </div>
-      {aside}
+      {aside && (
+        <div className="w-full sm:w-auto shrink-0 flex flex-wrap gap-3 [&_button]:w-full sm:[&_button]:w-auto">
+          {aside}
+        </div>
+      )}
     </header>
   );
 }

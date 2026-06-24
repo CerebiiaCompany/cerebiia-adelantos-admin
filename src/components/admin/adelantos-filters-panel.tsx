@@ -1,6 +1,7 @@
 import { formatCOP, estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
 import { monthLabel } from "@/lib/adelantos-filters";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,12 +23,21 @@ type AdelantosFiltersPanelProps = {
   mes?: string;
   setMes?: (v: string) => void;
   showMes?: boolean;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  setFechaDesde?: (v: string) => void;
+  setFechaHasta?: (v: string) => void;
+  showFechaRango?: boolean;
 };
 
 export function AdelantosFiltersPanel({
   months = [],
   mes = "all",
   setMes,
+  fechaDesde = "",
+  fechaHasta = "",
+  setFechaDesde,
+  setFechaHasta,
   empresaId,
   setEmpresaId,
   estado,
@@ -35,14 +45,44 @@ export function AdelantosFiltersPanel({
   empresas,
   filteredCount,
   showMes = true,
+  showFechaRango = false,
 }: AdelantosFiltersPanelProps) {
   return (
-    <div className="admin-panel-card flex flex-wrap items-end gap-3 p-4">
+    <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 p-4">
+      {showFechaRango && setFechaDesde && setFechaHasta && (
+        <>
+          <div className="space-y-1.5 w-full sm:w-auto">
+            <Label className="text-xs" htmlFor="fecha-desde">
+              Desde
+            </Label>
+            <Input
+              id="fecha-desde"
+              type="date"
+              value={fechaDesde}
+              onChange={(e) => setFechaDesde(e.target.value)}
+              className="w-full sm:w-[160px]"
+            />
+          </div>
+          <div className="space-y-1.5 w-full sm:w-auto">
+            <Label className="text-xs" htmlFor="fecha-hasta">
+              Hasta
+            </Label>
+            <Input
+              id="fecha-hasta"
+              type="date"
+              value={fechaHasta}
+              min={fechaDesde || undefined}
+              onChange={(e) => setFechaHasta(e.target.value)}
+              className="w-full sm:w-[160px]"
+            />
+          </div>
+        </>
+      )}
       {showMes && setMes && (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 w-full sm:w-auto">
           <Label className="text-xs">Mes</Label>
           <Select value={mes} onValueChange={setMes}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -56,10 +96,10 @@ export function AdelantosFiltersPanel({
           </Select>
         </div>
       )}
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 w-full sm:w-auto">
         <Label className="text-xs">Empresa</Label>
         <Select value={empresaId} onValueChange={setEmpresaId}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger className="w-full sm:w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -72,10 +112,10 @@ export function AdelantosFiltersPanel({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 w-full sm:w-auto">
         <Label className="text-xs">Estado</Label>
         <Select value={estado} onValueChange={setEstado}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -88,9 +128,9 @@ export function AdelantosFiltersPanel({
           </SelectContent>
         </Select>
       </div>
-      <div className="ml-auto text-right">
+      <div className="sm:ml-auto text-left sm:text-right w-full sm:w-auto border-t border-border sm:border-t-0 pt-3 sm:pt-0">
         <div className="admin-kpi-label">Mostrando</div>
-        <div className="admin-kpi-value text-xl mt-1">{filteredCount}</div>
+        <div className="admin-kpi-value text-lg sm:text-xl mt-1">{filteredCount}</div>
         <div className="admin-kpi-sub mt-0.5">solicitudes</div>
       </div>
     </div>
@@ -129,12 +169,12 @@ export function AdelantosPorEmpresa({
           <p className="admin-section-subtitle text-xs">Suma de adelantos en el filtro actual.</p>
         </div>
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map(({ empresa, count, total, aprobado }) => (
-          <div key={empresa?.id} className="admin-nested-card">
-            <div className="font-medium">{empresa?.nombre ?? "—"}</div>
+          <div key={empresa?.id} className="admin-nested-card min-w-0">
+            <div className="font-medium truncate">{empresa?.nombre ?? "—"}</div>
             <div className="text-xs text-muted-foreground mb-3">{count} adelantos</div>
-            <div className="admin-kpi-value text-2xl">{formatCOP(total)}</div>
+            <div className="admin-kpi-value text-xl sm:text-2xl break-words">{formatCOP(total)}</div>
             {aprobado > 0 && (
               <div className="text-xs text-primary mt-1 tabular">{formatCOP(aprobado)} aprobado</div>
             )}

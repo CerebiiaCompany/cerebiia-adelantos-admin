@@ -1,0 +1,376 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
+import { getComision, updateComision } from "@/lib/api/comision";
+import {
+  getConfiguracion,
+  getConfiguracionHistorial,
+  updateConfiguracion,
+} from "@/lib/api/configuracion";
+import { ApiError } from "@/lib/api/errors";
+import type { Comision, ConfiguracionGlobal, HistorialConfiguracion } from "@/lib/api/types";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Percent, Save } from "lucide-react";
+
+export const Route = createFileRoute("/admin/configuracion")({
+  head: () => ({ meta: [{ title: "Configuración — Panel" }] }),
+  component: ConfiguracionPage,
+});
+
+function ConfiguracionPage() {
+  const [config, setConfig] = useState<ConfiguracionGlobal | null>(null);
+  const [comision, setComision] = useState<Comision | null>(null);
+  const [comisionDisponible, setComisionDisponible] = useState(false);
+  const [comisionPendienteBackend, setComisionPendienteBackend] = useState<string | null>(null);
+  const [historial, setHistorial] = useState<HistorialConfiguracion[]>([]);
+  const [form, setForm] = useState({
+    porcentaje_maximo_adelanto: "",
+    numero_maximo_cuotas: "",
+    plazo_maximo_dias: "",
+  });
+  const [comisionForm, setComisionForm] = useState({ porcentaje_comision: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savingComision, setSavingComision] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [comisionError, setComisionError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [comisionSuccess, setComisionSuccess] = useState<string | null>(null);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setComisionError(null);
+    setComisionPendienteBackend(null);
+    setComisionDisponible(false);
+
+    const results = await Promise.allSettled([
+      getConfiguracion(),
+      getConfiguracionHistorial(),
+      getComision(),
+    ]);
+
+    const [cfgResult, histResult, comisionResult] = results;
+
+    if (cfgResult.status === "fulfilled") {
+      setConfig(cfgResult.value);
+      setForm({
+        porcentaje_maximo_adelanto: cfgResult.value.porcentaje_maximo_adelanto,
+        numero_maximo_cuotas: String(cfgResult.value.numero_maximo_cuotas),
+        plazo_maximo_dias: String(cfgResult.value.plazo_maximo_dias),
+      });
+    } else {
+      const err = cfgResult.reason;
+      setError(err instanceof ApiError ? err.message : "No se pudo cargar la configuración de adelantos.");
+    }
+
+    if (histResult.status === "fulfilled") {
+      setHistorial(histResult.value);
+    }
+
+    if (comisionResult.status === "fulfilled") {
+      setComisionDisponible(true);
+      setComision(comisionResult.value);
+      setComisionForm({ porcentaje_comision: comisionResult.value.porcentaje_comision });
+    } else {
+      const err = comisionResult.reason;
+      if (err instanceof ApiError && err.status === 404) {
+        setComisionPendienteBackend(
+          "El backend aún no expone GET /api/v1/comision/. La UI está lista; cuando backend lo publique, este formulario se activará automáticamente.",
+        );
+      } else {
+        setComisionError(
+          err instanceof ApiError ? err.message : "No se pudo cargar la comisión.",
+        );
+      }
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const updated = await updateConfiguracion({
+        porcentaje_maximo_adelanto: form.porcentaje_maximo_adelanto,
+        numero_maximo_cuotas: Number(form.numero_maximo_cuotas),
+        plazo_maximo_dias: Number(form.plazo_maximo_dias),
+      });
+      setConfig(updated);
+      const hist = await getConfiguracionHistorial();
+      setHistorial(hist);
+      setSuccess("Configuración guardada correctamente.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo guardar la configuración.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitComision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comisionDisponible) return;
+
+    setSavingComision(true);
+    setComisionError(null);
+    setComisionSuccess(null);
+
+    try {
+      const updated = await updateComision({
+        porcentaje_comision: comisionForm.porcentaje_comision,
+      });
+      setComision(updated);
+      setComisionForm({ porcentaje_comision: updated.porcentaje_comision });
+      setComisionSuccess("Comisión actualizada correctamente.");
+    } catch (err) {
+      setComisionError(err instanceof ApiError ? err.message : "No se pudo guardar la comisión.");
+    } finally {
+      setSavingComision(false);
+    }
+  };
+
+  return (
+    <div className="admin-page space-y-6">
+      <AdminPageHeader
+        eyebrow="Parámetros"
+        title="Configuración de adelantos"
+        subtitle="Límites globales y comisión aplicados a todas las solicitudes."
+      />
+
+      {loading ? (
+        <div className="admin-panel-card flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+          Cargando configuración…
+        </div>
+      ) : (
+        <>
+          <div className="grid lg:grid-cols-2 gap-6 items-stretch">
+            <form onSubmit={submit} className="admin-panel-card h-full flex flex-col space-y-5">
+              <div>
+                <h2 className="admin-section-title text-lg">Límites de adelanto</h2>
+                <p className="admin-section-subtitle text-base mt-1">
+                  Porcentaje, cuotas y plazo máximo para solicitudes.
+                </p>
+              </div>
+
+              {error && (
+                <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+                  {error}
+                </p>
+              )}
+              {success && (
+                <p className="text-sm text-success rounded-lg border border-success/30 bg-success/10 px-3 py-2">
+                  {success}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+                <div className="space-y-1.5">
+                  <Label htmlFor="porcentaje">% máximo adelanto</Label>
+                  <Input
+                    id="porcentaje"
+                    required
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="100"
+                    value={form.porcentaje_maximo_adelanto}
+                    onChange={(e) => setForm({ ...form, porcentaje_maximo_adelanto: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Entre 0.01 y 100.00</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cuotas">Máx. cuotas</Label>
+                  <Input
+                    id="cuotas"
+                    required
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.numero_maximo_cuotas}
+                    onChange={(e) => setForm({ ...form, numero_maximo_cuotas: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="plazo">Plazo máximo (días)</Label>
+                  <Input
+                    id="plazo"
+                    required
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.plazo_maximo_dias}
+                    onChange={(e) => setForm({ ...form, plazo_maximo_dias: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-auto space-y-4 pt-2">
+                {config && (
+                  <p className="text-sm text-muted-foreground">
+                    Última actualización:{" "}
+                    {new Date(config.updated_at).toLocaleString("es-CO", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                )}
+
+                <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+                  {saving ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <Save className="size-4 mr-2" />
+                      Guardar límites
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+
+            <form
+              onSubmit={submitComision}
+              className={`admin-panel-card h-full flex flex-col space-y-5 ${!comisionDisponible ? "opacity-90" : ""}`}
+            >
+              <div>
+                <h2 className="admin-section-title text-lg">Comisión</h2>
+                <p className="admin-section-subtitle text-base mt-1">
+                  Porcentaje de comisión cobrado por cada adelanto procesado.
+                </p>
+              </div>
+
+              {comisionPendienteBackend && (
+                <p className="text-sm text-foreground rounded-lg border border-primary/25 bg-primary/[0.06] px-3 py-2.5 leading-relaxed">
+                  {comisionPendienteBackend}
+                </p>
+              )}
+
+              {comisionError && (
+                <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+                  {comisionError}
+                </p>
+              )}
+              {comisionSuccess && (
+                <p className="text-sm text-success rounded-lg border border-success/30 bg-success/10 px-3 py-2">
+                  {comisionSuccess}
+                </p>
+              )}
+
+              <div className="space-y-1.5 flex-1">
+                <Label htmlFor="comision">% comisión</Label>
+                <div className="relative max-w-md">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="comision"
+                    required={comisionDisponible}
+                    disabled={!comisionDisponible}
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="100"
+                    className="pl-9"
+                    placeholder={comisionDisponible ? undefined : "Pendiente backend"}
+                    value={comisionForm.porcentaje_comision}
+                    onChange={(e) =>
+                      setComisionForm({ porcentaje_comision: e.target.value })
+                    }
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Entre 0.01 y 100.00</p>
+              </div>
+
+              <div className="mt-auto space-y-4 pt-2">
+                {comision && (
+                  <p className="text-sm text-muted-foreground">
+                    Última actualización:{" "}
+                    {new Date(comision.updated_at).toLocaleString("es-CO", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={!comisionDisponible || savingComision || !comisionForm.porcentaje_comision}
+                  className="w-full sm:w-auto"
+                >
+                  {savingComision ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <Save className="size-4 mr-2" />
+                      Guardar comisión
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          <div className="admin-panel-card-flush">
+            <div className="admin-card-toolbar">
+              <h2 className="admin-section-title text-lg">Historial de cambios</h2>
+              <span className="text-sm text-muted-foreground">{historial.length} registros</span>
+            </div>
+            <div className="admin-table-scroll">
+            <table className="admin-table min-w-[32rem]">
+              <thead className="admin-table-head">
+                <tr>
+                  <th className="admin-table-th text-left">Fecha</th>
+                  <th className="admin-table-th text-right">% adelanto</th>
+                  <th className="admin-table-th text-right">Cuotas</th>
+                  <th className="admin-table-th text-right">Plazo (días)</th>
+                  <th className="admin-table-th text-left hidden md:table-cell">Actualizado por</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {historial.map((row) => (
+                  <tr key={row.id} className="hover:bg-muted/30">
+                    <td className="tabular text-muted-foreground">
+                      {new Date(row.timestamp).toLocaleString("es-CO", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </td>
+                    <td className="text-right tabular font-medium">{row.porcentaje_maximo_adelanto}%</td>
+                    <td className="text-right tabular">{row.numero_maximo_cuotas}</td>
+                    <td className="text-right tabular">{row.plazo_maximo_dias}</td>
+                    <td className="hidden md:table-cell admin-table-cell-mono text-xs">
+                      {row.actualizado_por ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+                {historial.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="admin-table-empty">
+                      Aún no hay cambios registrados en el historial.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

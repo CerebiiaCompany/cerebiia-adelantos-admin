@@ -13,8 +13,10 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminHistorialAdelantosRouteImport } from './routes/admin.historial-adelantos'
 import { Route as AdminEmpresasRouteImport } from './routes/admin.empresas'
+import { Route as AdminConfiguracionRouteImport } from './routes/admin.configuracion'
 import { Route as AdminAdelantosRouteImport } from './routes/admin.adelantos'
 
 const LoginRoute = LoginRouteImport.update({
@@ -37,6 +39,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
   id: '/historial-adelantos',
   path: '/historial-adelantos',
@@ -45,6 +52,11 @@ const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
 const AdminEmpresasRoute = AdminEmpresasRouteImport.update({
   id: '/empresas',
   path: '/empresas',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminConfiguracionRoute = AdminConfiguracionRouteImport.update({
+  id: '/configuracion',
+  path: '/configuracion',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAdelantosRoute = AdminAdelantosRouteImport.update({
@@ -58,16 +70,20 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
+  '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
+  '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -76,8 +92,10 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
+  '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -87,16 +105,20 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/admin/adelantos'
+    | '/admin/configuracion'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/usuarios'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/admin/adelantos'
+    | '/admin/configuracion'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/usuarios'
     | '/admin'
   id:
     | '__root__'
@@ -104,8 +126,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/admin/adelantos'
+    | '/admin/configuracion'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/usuarios'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -145,6 +169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/historial-adelantos': {
       id: '/admin/historial-adelantos'
       path: '/historial-adelantos'
@@ -159,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEmpresasRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/configuracion': {
+      id: '/admin/configuracion'
+      path: '/configuracion'
+      fullPath: '/admin/configuracion'
+      preLoaderRoute: typeof AdminConfiguracionRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/adelantos': {
       id: '/admin/adelantos'
       path: '/adelantos'
@@ -171,15 +209,19 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAdelantosRoute: typeof AdminAdelantosRoute
+  AdminConfiguracionRoute: typeof AdminConfiguracionRoute
   AdminEmpresasRoute: typeof AdminEmpresasRoute
   AdminHistorialAdelantosRoute: typeof AdminHistorialAdelantosRoute
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdelantosRoute: AdminAdelantosRoute,
+  AdminConfiguracionRoute: AdminConfiguracionRoute,
   AdminEmpresasRoute: AdminEmpresasRoute,
   AdminHistorialAdelantosRoute: AdminHistorialAdelantosRoute,
+  AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

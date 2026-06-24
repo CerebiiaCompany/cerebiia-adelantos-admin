@@ -95,28 +95,28 @@ export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: 
                   const totalAdelantado = calcularTotalAdelantadoEmpleado(e, adelantos);
                   return (
                   <tr key={e.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium whitespace-nowrap">{e.nombre}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{e.tipoDocumento}</td>
-                    <td className="px-4 py-3 admin-table-cell-mono">{e.documento}</td>
-                    <td className="px-4 py-3 text-right admin-table-cell-money">{formatCOP(e.salario)}</td>
-                    <td className="px-4 py-3 text-right admin-table-cell-money text-primary font-semibold">
+                    <td className="admin-table-cell-title whitespace-nowrap">{e.nombre}</td>
+                    <td className="text-muted-foreground">{e.tipoDocumento}</td>
+                    <td className="admin-table-cell-mono">{e.documento}</td>
+                    <td className="text-right admin-table-cell-money">{formatCOP(e.salario)}</td>
+                    <td className="text-right admin-table-cell-money text-primary">
                       {formatCOP(calcularSaldoDisponible(e.salario))}
                     </td>
-                    <td className="px-4 py-3 text-right admin-table-cell-money font-semibold">
+                    <td className="text-right admin-table-cell-money">
                       {formatCOP(totalAdelantado)}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{e.banco}</td>
-                    <td className="px-4 py-3 tabular admin-table-cell-mono">{e.numeroCuenta}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{e.tipoCuenta}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{e.email}</td>
-                    <td className="px-4 py-3 tabular admin-table-cell-mono">{e.celular}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{e.tipoContrato}</td>
+                    <td className="text-muted-foreground">{e.banco}</td>
+                    <td className="tabular admin-table-cell-mono">{e.numeroCuenta}</td>
+                    <td className="text-muted-foreground">{e.tipoCuenta}</td>
+                    <td className="text-muted-foreground">{e.email}</td>
+                    <td className="tabular admin-table-cell-mono">{e.celular}</td>
+                    <td className="text-muted-foreground whitespace-nowrap">{e.tipoContrato}</td>
                   </tr>
                   );
                 })}
                 {lista.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={12} className="admin-table-empty">
                       {busqueda
                         ? "No se encontraron empleados con ese criterio."
                         : "Esta empresa aún no tiene empleados registrados en nómina."}

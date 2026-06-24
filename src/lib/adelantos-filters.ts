@@ -12,6 +12,18 @@ export function monthLabel(key: string) {
   return date.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
 }
 
+export function dateKey(d: string) {
+  const date = new Date(d);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function inDateRange(fechaSolicitud: string, desde: string, hasta: string) {
+  const key = dateKey(fechaSolicitud);
+  if (desde && key < desde) return false;
+  if (hasta && key > hasta) return false;
+  return true;
+}
+
 export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) {
   const months = useMemo(() => {
     const set = new Set(adelantos.map((a) => monthKey(a.fechaSolicitud)));
@@ -19,16 +31,19 @@ export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) 
   }, [adelantos]);
 
   const [mes, setMes] = useState<string>("all");
+  const [fechaDesde, setFechaDesde] = useState<string>("");
+  const [fechaHasta, setFechaHasta] = useState<string>("");
   const [empresaId, setEmpresaId] = useState<string>("all");
   const [estado, setEstado] = useState<string>("all");
 
   const filtered = useMemo(() => {
     return adelantos
       .filter((a) => (mes === "all" ? true : monthKey(a.fechaSolicitud) === mes))
+      .filter((a) => inDateRange(a.fechaSolicitud, fechaDesde, fechaHasta))
       .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
       .filter((a) => (estado === "all" ? true : a.estado === estado))
       .sort((a, b) => +new Date(b.fechaSolicitud) - +new Date(a.fechaSolicitud));
-  }, [adelantos, mes, empresaId, estado]);
+  }, [adelantos, mes, fechaDesde, fechaHasta, empresaId, estado]);
 
   const totals = useMemo(() => {
     const total = filtered.reduce((s, a) => s + a.monto, 0);
@@ -57,6 +72,10 @@ export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) 
     months,
     mes,
     setMes,
+    fechaDesde,
+    setFechaDesde,
+    fechaHasta,
+    setFechaHasta,
     empresaId,
     setEmpresaId,
     estado,

@@ -48,7 +48,7 @@ function HistorialAdelantosPage() {
         filteredCount={filtered.length}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <AdelantosStat label="Total filtrado" value={formatCOP(totals.total)} />
         <AdelantosStat label="Aprobado (por pagar)" value={formatCOP(totals.totalAprobado)} highlight />
         <AdelantosStat label="Aprobaciones pendientes" value={String(totals.countAprobado)} />

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAdmin, formatCOP, estadoLabel, type Adelanto, type EstadoAdelanto } from "@/lib/admin-store";
+import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdelantosFiltersPanel } from "@/components/admin/adelantos-filters-panel";
@@ -28,25 +29,34 @@ export const Route = createFileRoute("/admin/adelantos")({
   component: AdelantosPage,
 });
 
-const ESTADO_COLORS: Record<EstadoAdelanto, string> = {
-  solicitado: "bg-info/15 text-info border-info/30",
-  en_revision: "bg-warning/15 text-warning border-warning/30",
-  aprobado: "bg-primary/15 text-primary border-primary/30",
-  pagado: "bg-success/15 text-success border-success/30",
-  rechazado: "bg-destructive/15 text-destructive border-destructive/30",
-};
+const ESTADO_COLORS = ESTADO_BADGE_CLASSES;
 
 function AdelantosPage() {
   const { empresas, adelantos, updateAdelantoEstado, marcarPagado } = useAdmin();
   const [viewing, setViewing] = useState<Adelanto | null>(null);
   const [paying, setPaying] = useState<Adelanto | null>(null);
 
-  const { empresaId, setEmpresaId, estado, setEstado, filtered } = useAdelantosFilters(
-    adelantos,
-    empresas,
-  );
+  const {
+    months,
+    mes,
+    setMes,
+    fechaDesde,
+    setFechaDesde,
+    fechaHasta,
+    setFechaHasta,
+    empresaId,
+    setEmpresaId,
+    estado,
+    setEstado,
+    filtered,
+  } = useAdelantosFilters(adelantos, empresas);
 
-  const hasFilters = empresaId !== "all" || estado !== "all";
+  const hasFilters =
+    mes !== "all" ||
+    fechaDesde !== "" ||
+    fechaHasta !== "" ||
+    empresaId !== "all" ||
+    estado !== "all";
 
   return (
     <div className="admin-page">
@@ -57,7 +67,14 @@ function AdelantosPage() {
       />
 
       <AdelantosFiltersPanel
-        showMes={false}
+        months={months}
+        mes={mes}
+        setMes={setMes}
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        setFechaDesde={setFechaDesde}
+        setFechaHasta={setFechaHasta}
+        showFechaRango
         empresaId={empresaId}
         setEmpresaId={setEmpresaId}
         estado={estado}
@@ -69,9 +86,9 @@ function AdelantosPage() {
       <div className="admin-panel-card-flush">
         <div className="admin-card-toolbar">
           <h2 className="admin-section-title">Solicitudes de adelanto</h2>
-          <span className="text-xs text-muted-foreground">{filtered.length} registros</span>
+          <span className="text-sm text-muted-foreground">{filtered.length} registros</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="admin-table-scroll">
           <table className="admin-table">
             <thead className="admin-table-head">
               <tr>
@@ -88,35 +105,37 @@ function AdelantosPage() {
                 const e = empresas.find((x) => x.id === a.empresaId);
                 return (
                   <tr key={a.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{a.empleadoNombre}</div>
+                    <td>
+                      <div className="admin-table-cell-title">{a.empleadoNombre}</div>
                       <div className="admin-table-cell-note tabular">CC {a.empleadoCedula}</div>
+                      <div className="admin-table-cell-note md:hidden truncate mt-0.5">{e?.nombre}</div>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{e?.nombre}</td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground tabular">
+                    <td className="hidden md:table-cell text-muted-foreground">{e?.nombre}</td>
+                    <td className="hidden lg:table-cell text-muted-foreground tabular">
                       {new Date(a.fechaSolicitud).toLocaleDateString("es-CO")}
                     </td>
-                    <td className="px-4 py-3 text-right admin-table-cell-money">{formatCOP(a.monto)}</td>
-                    <td className="px-4 py-3">
+                    <td className="text-right admin-table-cell-money">{formatCOP(a.monto)}</td>
+                    <td>
                       <div className="flex justify-center">
                         <EstadoSelect value={a.estado} onChange={(v) => updateAdelantoEstado(a.id, v)} />
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
+                    <td>
+                      <div className="flex justify-end gap-1.5">
                         {a.estado === "aprobado" && (
                           <>
-                            <Button size="icon" variant="ghost" onClick={() => setViewing(a)} title="Ver cuenta">
-                              <Eye className="size-4" />
+                            <Button size="icon" variant="ghost" className="size-10" onClick={() => setViewing(a)} title="Ver cuenta">
+                              <Eye className="size-5" />
                             </Button>
-                            <Button size="sm" onClick={() => setPaying(a)} className="h-8">
-                              <Upload className="size-3.5 mr-1" /> Pagar
+                            <Button size="sm" onClick={() => setPaying(a)} className="h-9 px-2 sm:px-3 text-sm">
+                              <Upload className="size-4 sm:mr-1.5" />
+                              <span className="hidden sm:inline">Pagar</span>
                             </Button>
                           </>
                         )}
                         {a.estado === "pagado" && (
-                          <span className="inline-flex items-center gap-1 text-xs text-success">
-                            <FileCheck2 className="size-3.5" /> Comprobante
+                          <span className="inline-flex items-center gap-1.5 text-sm text-success font-medium">
+                            <FileCheck2 className="size-4" /> Comprobante
                           </span>
                         )}
                       </div>
@@ -126,7 +145,7 @@ function AdelantosPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="admin-table-empty">
                     {hasFilters || adelantos.length > 0
                       ? "No hay solicitudes que coincidan con los filtros seleccionados."
                       : "No hay solicitudes de adelanto registradas."}
@@ -155,7 +174,7 @@ function AdelantosPage() {
 function EstadoBadge({ estado }: { estado: EstadoAdelanto }) {
   return (
     <span
-      className={`inline-flex items-center text-xs font-medium rounded-md border px-2 py-0.5 ${ESTADO_COLORS[estado]}`}
+      className={`inline-flex items-center text-sm font-medium rounded-md border px-2.5 py-1 ${ESTADO_COLORS[estado]}`}
     >
       {estadoLabel[estado]}
     </span>
@@ -165,7 +184,7 @@ function EstadoBadge({ estado }: { estado: EstadoAdelanto }) {
 function EstadoSelect({ value, onChange }: { value: EstadoAdelanto; onChange: (v: EstadoAdelanto) => void }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as EstadoAdelanto)}>
-      <SelectTrigger className="h-7 px-2 w-auto border-none bg-transparent hover:bg-muted/50 [&>svg]:size-3">
+      <SelectTrigger className="h-9 px-2.5 w-auto border-none bg-transparent hover:bg-muted/50 [&>svg]:size-4">
         <SelectValue asChild>
           <EstadoBadge estado={value} />
         </SelectValue>
@@ -269,14 +288,14 @@ function PagoDialog({
         {adelanto && (
           <form onSubmit={submit} className="space-y-4">
             <div className="rounded-lg bg-surface border border-border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">{adelanto.empleadoNombre}</div>
-                  <div className="text-xs text-muted-foreground">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{adelanto.empleadoNombre}</div>
+                  <div className="text-xs text-muted-foreground truncate">
                     {adelanto.cuenta.banco} · {adelanto.cuenta.numero}
                   </div>
                 </div>
-                <div className="text-lg font-semibold tabular">{formatCOP(adelanto.monto)}</div>
+                <div className="text-lg font-semibold tabular shrink-0">{formatCOP(adelanto.monto)}</div>
               </div>
             </div>
 
