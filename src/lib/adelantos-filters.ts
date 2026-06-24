@@ -1,0 +1,68 @@
+import { useMemo, useState } from "react";
+import type { Adelanto, Empresa } from "@/lib/admin-store";
+
+export function monthKey(d: string) {
+  const date = new Date(d);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function monthLabel(key: string) {
+  const [y, m] = key.split("-");
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return date.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+}
+
+export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) {
+  const months = useMemo(() => {
+    const set = new Set(adelantos.map((a) => monthKey(a.fechaSolicitud)));
+    return Array.from(set).sort().reverse();
+  }, [adelantos]);
+
+  const [mes, setMes] = useState<string>("all");
+  const [empresaId, setEmpresaId] = useState<string>("all");
+  const [estado, setEstado] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    return adelantos
+      .filter((a) => (mes === "all" ? true : monthKey(a.fechaSolicitud) === mes))
+      .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
+      .filter((a) => (estado === "all" ? true : a.estado === estado))
+      .sort((a, b) => +new Date(b.fechaSolicitud) - +new Date(a.fechaSolicitud));
+  }, [adelantos, mes, empresaId, estado]);
+
+  const totals = useMemo(() => {
+    const total = filtered.reduce((s, a) => s + a.monto, 0);
+    const aprobados = filtered.filter((a) => a.estado === "aprobado");
+    const totalAprobado = aprobados.reduce((s, a) => s + a.monto, 0);
+    const pagados = filtered.filter((a) => a.estado === "pagado");
+    const totalPagado = pagados.reduce((s, a) => s + a.monto, 0);
+    return { total, totalAprobado, totalPagado, countAprobado: aprobados.length };
+  }, [filtered]);
+
+  const porEmpresa = useMemo(() => {
+    const map = new Map<string, { count: number; total: number; aprobado: number }>();
+    for (const a of filtered) {
+      const e = map.get(a.empresaId) ?? { count: 0, total: 0, aprobado: 0 };
+      e.count++;
+      e.total += a.monto;
+      if (a.estado === "aprobado") e.aprobado += a.monto;
+      map.set(a.empresaId, e);
+    }
+    return Array.from(map.entries())
+      .map(([id, v]) => ({ empresa: empresas.find((x) => x.id === id), ...v }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtered, empresas]);
+
+  return {
+    months,
+    mes,
+    setMes,
+    empresaId,
+    setEmpresaId,
+    estado,
+    setEstado,
+    filtered,
+    totals,
+    porEmpresa,
+  };
+}

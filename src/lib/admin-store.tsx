@@ -11,6 +11,42 @@ export type Empresa = {
   createdAt: string;
 };
 
+export type TipoDocumento = "CC" | "CE" | "PPT";
+export type TipoContrato = "Término Indefinido" | "Término Fijo" | "Aprendizaje" | "Obra o labor";
+
+export type Empleado = {
+  id: string;
+  empresaId: string;
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  salario: number;
+  banco: string;
+  numeroCuenta: string;
+  tipoCuenta: "Ahorros" | "Corriente";
+  email: string;
+  celular: string;
+  tipoContrato: TipoContrato;
+};
+
+export const SALDO_DISPONIBLE_PORCENTAJE = 0.3;
+
+export function calcularSaldoDisponible(salario: number): number {
+  return Math.round(salario * SALDO_DISPONIBLE_PORCENTAJE);
+}
+
+export function empleadoCoincideAdelanto(empleado: Empleado, adelanto: Adelanto): boolean {
+  if (adelanto.empresaId !== empleado.empresaId) return false;
+  if (adelanto.empleadoCedula === empleado.documento) return true;
+  return adelanto.empleadoNombre.toLowerCase() === empleado.nombre.toLowerCase();
+}
+
+export function calcularTotalAdelantadoEmpleado(empleado: Empleado, adelantos: Adelanto[]): number {
+  return adelantos
+    .filter((a) => empleadoCoincideAdelanto(empleado, a) && a.estado !== "rechazado")
+    .reduce((sum, a) => sum + a.monto, 0);
+}
+
 export type EstadoAdelanto = "solicitado" | "en_revision" | "aprobado" | "pagado" | "rechazado";
 
 export type Adelanto = {
@@ -33,6 +69,7 @@ export type Adelanto = {
 type Store = {
   empresas: Empresa[];
   adelantos: Adelanto[];
+  empleados: Empleado[];
   addEmpresa: (e: Omit<Empresa, "id" | "createdAt" | "activa"> & { activa?: boolean }) => void;
   toggleEmpresa: (id: string) => void;
   updateAdelantoEstado: (id: string, estado: EstadoAdelanto) => void;
@@ -42,7 +79,77 @@ type Store = {
 const StoreCtx = createContext<Store | null>(null);
 const STORAGE_KEY = "lov_admin_data_v1";
 
-function seed(): { empresas: Empresa[]; adelantos: Adelanto[] } {
+function seedEmpleados(empresas: Empresa[]): Empleado[] {
+  const plantilla: Omit<Empleado, "id" | "empresaId">[] = [
+    {
+      nombre: "Juan Gómez",
+      tipoDocumento: "CC",
+      documento: "1098765432",
+      salario: 2500000,
+      banco: "Bancolombia",
+      numeroCuenta: "12345678901",
+      tipoCuenta: "Ahorros",
+      email: "juan.gomez@empresa.co",
+      celular: "3001234567",
+      tipoContrato: "Término Indefinido",
+    },
+    {
+      nombre: "María López",
+      tipoDocumento: "CC",
+      documento: "1087654321",
+      salario: 1800000,
+      banco: "Daviplata",
+      numeroCuenta: "3019876543",
+      tipoCuenta: "Ahorros",
+      email: "maria.lopez@empresa.co",
+      celular: "3109876543",
+      tipoContrato: "Término Fijo",
+    },
+    {
+      nombre: "Pedro Sánchez",
+      tipoDocumento: "CC",
+      documento: "1076543210",
+      salario: 3200000,
+      banco: "Nequi",
+      numeroCuenta: "3207654321",
+      tipoCuenta: "Ahorros",
+      email: "pedro.sanchez@empresa.co",
+      celular: "3158765432",
+      tipoContrato: "Término Indefinido",
+    },
+    {
+      nombre: "Sofía Ramírez",
+      tipoDocumento: "CC",
+      documento: "1065432109",
+      salario: 1500000,
+      banco: "BBVA",
+      numeroCuenta: "9876543210",
+      tipoCuenta: "Corriente",
+      email: "sofia.ramirez@empresa.co",
+      celular: "3187654321",
+      tipoContrato: "Aprendizaje",
+    },
+  ];
+
+  const empleados: Empleado[] = [];
+  let counter = 0;
+
+  for (const empresa of empresas) {
+    for (const base of plantilla) {
+      counter++;
+      empleados.push({
+        ...base,
+        id: `emp${counter}`,
+        empresaId: empresa.id,
+        email: base.email.replace("@empresa.co", `@${empresa.nombre.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "")}.co`),
+      });
+    }
+  }
+
+  return empleados;
+}
+
+function seed(): { empresas: Empresa[]; adelantos: Adelanto[]; empleados: Empleado[] } {
   const empresas: Empresa[] = [
     { id: "e1", nombre: "TechCorp S.A.S", nit: "900123456-1", sector: "Tecnología", adminNombre: "Laura Méndez", adminEmail: "laura@techcorp.co", activa: true, createdAt: "2025-01-12" },
     { id: "e2", nombre: "Innovate Ltda", nit: "901234567-2", sector: "Consultoría", adminNombre: "Carlos Ruiz", adminEmail: "carlos@innovate.co", activa: true, createdAt: "2025-02-03" },
@@ -89,14 +196,29 @@ function seed(): { empresas: Empresa[]; adelantos: Adelanto[] } {
       });
     }
   }
-  return { empresas, adelantos };
+  return { empresas, adelantos, empleados: seedEmpleados(empresas) };
 }
 
-function load(): { empresas: Empresa[]; adelantos: Adelanto[] } {
-  if (typeof window === "undefined") return { empresas: [], adelantos: [] };
+function load(): { empresas: Empresa[]; adelantos: Adelanto[]; empleados: Empleado[] } {
+  if (typeof window === "undefined") return { empresas: [], adelantos: [], empleados: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        empresas: Empresa[];
+        adelantos: Adelanto[];
+        empleados?: Empleado[];
+      };
+      if (!parsed.empleados?.length) {
+        parsed.empleados = seedEmpleados(parsed.empresas ?? []);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+      return {
+        empresas: parsed.empresas ?? [],
+        adelantos: parsed.adelantos ?? [],
+        empleados: parsed.empleados ?? [],
+      };
+    }
   } catch {}
   const seeded = seed();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
@@ -106,15 +228,17 @@ function load(): { empresas: Empresa[]; adelantos: Adelanto[] } {
 export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [adelantos, setAdelantos] = useState<Adelanto[]>([]);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
 
   useEffect(() => {
     const data = load();
     setEmpresas(data.empresas);
     setAdelantos(data.adelantos);
+    setEmpleados(data.empleados);
   }, []);
 
-  const persist = useCallback((e: Empresa[], a: Adelanto[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ empresas: e, adelantos: a }));
+  const persist = useCallback((e: Empresa[], a: Adelanto[], emp: Empleado[]) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ empresas: e, adelantos: a, empleados: emp }));
   }, []);
 
   const addEmpresa: Store["addEmpresa"] = (e) => {
@@ -128,7 +252,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
           activa: e.activa ?? true,
         },
       ];
-      persist(next, adelantos);
+      persist(next, adelantos, empleados);
       return next;
     });
   };
@@ -136,7 +260,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const toggleEmpresa: Store["toggleEmpresa"] = (id) => {
     setEmpresas((prev) => {
       const next = prev.map((x) => (x.id === id ? { ...x, activa: !x.activa } : x));
-      persist(next, adelantos);
+      persist(next, adelantos, empleados);
       return next;
     });
   };
@@ -144,7 +268,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const updateAdelantoEstado: Store["updateAdelantoEstado"] = (id, estado) => {
     setAdelantos((prev) => {
       const next = prev.map((x) => (x.id === id ? { ...x, estado } : x));
-      persist(empresas, next);
+      persist(empresas, next, empleados);
       return next;
     });
   };
@@ -156,15 +280,15 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
           ? { ...x, estado: "pagado" as EstadoAdelanto, comprobanteUrl, fechaPago: new Date().toISOString() }
           : x,
       );
-      persist(empresas, next);
+      persist(empresas, next, empleados);
       return next;
     });
   };
 
   const value = useMemo<Store>(
-    () => ({ empresas, adelantos, addEmpresa, toggleEmpresa, updateAdelantoEstado, marcarPagado }),
+    () => ({ empresas, adelantos, empleados, addEmpresa, toggleEmpresa, updateAdelantoEstado, marcarPagado }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [empresas, adelantos],
+    [empresas, adelantos, empleados],
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

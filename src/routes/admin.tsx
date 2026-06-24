@@ -1,19 +1,27 @@
-import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { isLoggedIn, logout, validateSession, getStoredUser } from "@/lib/auth";
 import type { AuthUser } from "@/lib/api/types";
 import { AdminStoreProvider } from "@/lib/admin-store";
-import { LayoutDashboard, Building2, Wallet, LogOut, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AdminBackground } from "@/components/admin/admin-background";
+import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
+import { AdminTopbar } from "@/components/admin/admin-topbar";
+import { AdminSidebarToggle } from "@/components/admin/admin-sidebar-toggle";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
+import { cn } from "@/lib/utils";
+import { Building2, History, LayoutDashboard, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
 });
 
-const nav = [
+const nav: AdminNavItem[] = [
   { to: "/admin", label: "Inicio", icon: LayoutDashboard, exact: true },
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
   { to: "/admin/adelantos", label: "Adelantos", icon: Wallet },
+  { to: "/admin/historial-adelantos", label: "Historial de adelantos", icon: History },
 ];
 
 function AdminLayout() {
@@ -21,7 +29,14 @@ function AdminLayout() {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    setSidebarOpen(readSidebarOpenPreference());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,94 +75,82 @@ function AdminLayout() {
     }
   };
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <div className="min-h-screen grid place-items-center text-sm text-muted-foreground font-sans">
+        Cargando panel…
+      </div>
+    );
+  }
 
   const displayUser = user ?? getStoredUser();
+  if (!displayUser) return null;
 
-  const isActive = (to: string, exact?: boolean) =>
-    exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
+  const isSidebarVisible = isMobile ? mobileOpen : sidebarOpen;
+
+  const handleToggleSidebar = () => {
+    if (isMobile) {
+      setMobileOpen((prev) => !prev);
+      return;
+    }
+
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      writeSidebarOpenPreference(next);
+      return next;
+    });
+  };
 
   return (
     <AdminStoreProvider>
-      <div className="min-h-screen flex bg-background text-foreground">
-        {/* Sidebar */}
-        <aside className="hidden md:flex w-60 flex-col border-r border-border bg-sidebar p-4 gap-1">
-          <div className="flex items-center gap-2 px-2 py-3 mb-4">
-            <div className="size-7 rounded-md bg-primary grid place-items-center text-primary-foreground">
-              <Zap className="size-3.5" strokeWidth={2.5} />
-            </div>
-            <span className="font-semibold tracking-tight text-sm">Adelantos · Panel</span>
-          </div>
-
-          <div className="px-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-            General
-          </div>
-
-          {nav.map((n) => {
-            const active = isActive(n.to, n.exact);
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-                  active
-                    ? "bg-sidebar-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60"
-                }`}
-              >
-                <n.icon className="size-4" />
-                {n.label}
-                {active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
-              </Link>
-            );
-          })}
-
-          <div className="mt-auto border-t border-sidebar-border pt-3 space-y-2">
-            <div className="px-3 py-2 text-xs">
-              <div className="text-foreground font-medium">{displayUser?.email ?? "—"}</div>
-              <div className="text-muted-foreground">
-                {displayUser?.full_name ?? "Super administrador"}
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-muted-foreground"
-              disabled={loggingOut}
-              onClick={handleLogout}
-            >
-              <LogOut className="size-4 mr-2" />
-              Cerrar sesión
-            </Button>
-          </div>
+      <div className="min-h-screen flex text-foreground font-sans">
+        <aside
+          className={cn(
+            "hidden md:flex shrink-0 fixed inset-y-0 left-0 z-40 transition-[width,opacity] duration-300 ease-in-out overflow-hidden",
+            sidebarOpen ? "w-[var(--sidebar-width)] opacity-100" : "w-0 opacity-0 pointer-events-none",
+          )}
+        >
+          <AdminSidebar
+            nav={nav}
+            pathname={pathname}
+            onLogout={handleLogout}
+            loggingOut={loggingOut}
+          />
         </aside>
 
-        {/* Mobile top bar */}
-        <div className="md:hidden fixed top-0 inset-x-0 h-14 border-b border-border bg-sidebar flex items-center gap-3 px-4 z-40">
-          <div className="size-7 rounded-md bg-primary grid place-items-center text-primary-foreground">
-            <Zap className="size-3.5" strokeWidth={2.5} />
-          </div>
-          <span className="font-semibold text-sm">Panel</span>
-          <div className="ml-auto flex gap-1">
-            {nav.map((n) => {
-              const active = isActive(n.to, n.exact);
-              return (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className={`p-2 rounded-md ${active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground"}`}
-                  aria-label={n.label}
-                >
-                  <n.icon className="size-4" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[var(--sidebar-width)] p-0 border-border">
+            <AdminSidebar
+              nav={nav}
+              pathname={pathname}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
 
-        <main className="flex-1 min-w-0 pt-14 md:pt-0">
-          <Outlet />
-        </main>
+        <AdminSidebarToggle open={isSidebarVisible} onClick={handleToggleSidebar} />
+
+        <div
+          className={cn(
+            "flex-1 min-w-0 flex flex-col min-h-screen relative transition-[margin] duration-300 ease-in-out",
+            sidebarOpen ? "md:ml-[var(--sidebar-width)]" : "md:ml-0",
+          )}
+        >
+          <AdminTopbar
+            user={displayUser}
+            onLogout={handleLogout}
+            loggingOut={loggingOut}
+          />
+
+          <main className="relative flex-1">
+            <AdminBackground />
+            <div className="relative z-10">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
     </AdminStoreProvider>
   );

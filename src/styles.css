@@ -5,7 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -14,110 +15,477 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-info: var(--info);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-ring-offset-background: var(--background);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-surface: hsl(var(--surface));
+  --color-surface-2: hsl(var(--surface-2));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-ring-offset-background: hsl(var(--background));
+  --color-shell-surface: hsl(var(--shell-surface));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
 :root {
   --radius: 0.75rem;
-  /* Light theme — white with blue accent */
-  --background: oklch(0.985 0.005 250);
-  --foreground: oklch(0.18 0 0);
-  --surface: oklch(0.96 0.01 250);
-  --surface-2: oklch(0.93 0.015 250);
-  --card: oklch(0.995 0 0);
-  --card-foreground: oklch(0.18 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0 0);
-  --primary: oklch(0.55 0.19 250);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.94 0.01 250);
-  --secondary-foreground: oklch(0.2 0 0);
-  --muted: oklch(0.93 0.01 250);
-  --muted-foreground: oklch(0.5 0.02 250);
-  --accent: oklch(0.92 0.015 250);
-  --accent-foreground: oklch(0.2 0 0);
-  --destructive: oklch(0.58 0.22 22);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.6 0.18 155);
-  --warning: oklch(0.75 0.16 80);
-  --info: oklch(0.65 0.14 230);
-  --border: oklch(0.88 0.01 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.55 0.19 250);
-  --chart-1: oklch(0.55 0.19 250);
-  --chart-2: oklch(0.65 0.14 230);
-  --chart-3: oklch(0.75 0.16 80);
-  --chart-4: oklch(0.65 0.20 320);
-  --chart-5: oklch(0.65 0.18 155);
-  --sidebar: oklch(0.97 0.005 250);
-  --sidebar-foreground: oklch(0.18 0 0);
-  --sidebar-primary: oklch(0.55 0.19 250);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.92 0.015 250);
-  --sidebar-accent-foreground: oklch(0.18 0 0);
-  --sidebar-border: oklch(0.88 0.01 250);
-  --sidebar-ring: oklch(0.55 0.19 250);
+  --sidebar-width: 19rem;
+  --sidebar-width-icon: 4.25rem;
+
+  /* Super Admin — misma estructura que empresa, identidad violeta/índigo */
+  --background: 260 100% 98%;
+  --foreground: 220 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 12%;
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 20% 12%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 10% 45%;
+  --accent: 280 65% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 155 65% 45%;
+  --warning: 38 92% 50%;
+  --info: 262 70% 55%;
+  --border: 220 14% 90%;
+  --input: 220 14% 90%;
+  --ring: 258 90% 66%;
+  --surface: 220 14% 96%;
+  --surface-2: 262 30% 94%;
+  --shell-surface: 262 72% 95%;
+  --chart-1: 262 80% 50%;
+  --chart-2: 280 65% 55%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 262 60% 65%;
+  --chart-5: 155 65% 45%;
+  --sidebar: 262 30% 97%;
+  --sidebar-foreground: 220 20% 12%;
+  --sidebar-primary: 262 80% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 262 45% 94%;
+  --sidebar-accent-foreground: 262 80% 40%;
+  --sidebar-border: 262 20% 90%;
+  --sidebar-ring: 262 80% 50%;
+
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--accent)) 100%
+  );
+  --shadow-card: 0 4px 24px hsl(262 40% 50% / 0.08);
+  --shadow-glow: 0 0 40px hsl(262 80% 50% / 0.15);
 }
 
 .dark {
-  --background: oklch(0.16 0.012 250);
-  --foreground: oklch(0.97 0.005 250);
+  --background: 262 25% 8%;
+  --foreground: 220 20% 98%;
 }
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: hsl(var(--border));
   }
 
   html,
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
   }
 
   .font-mono,
   .tabular {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .app-sidebar-brand-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+
+  .app-sidebar-section-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.9);
+  }
+
+  .app-shell-header {
+    @apply sticky top-0 z-30 flex h-14 items-center border-b backdrop-blur-md;
+    background-color: hsl(var(--shell-surface) / 0.85);
+    border-color: hsl(var(--border) / 0.8);
+  }
+
+  .admin-page {
+    @apply p-6 md:p-10 space-y-6 max-w-[1400px] mx-auto;
+  }
+
+  .admin-eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/90;
+  }
+
+  .admin-title {
+    @apply font-display text-2xl font-bold leading-tight tracking-tight text-foreground;
+  }
+
+  .admin-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  .admin-section-title {
+    @apply font-display text-sm font-semibold text-foreground;
+  }
+
+  .admin-section-subtitle {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .admin-kpi-label {
+    @apply text-xs uppercase tracking-wide text-muted-foreground font-semibold;
+  }
+
+  .admin-kpi-value {
+    @apply font-display text-3xl font-bold tracking-tight text-foreground leading-none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-kpi-sub {
+    @apply text-sm text-muted-foreground mt-2;
+  }
+
+  .admin-metric-card {
+    @apply rounded-2xl bg-card p-6 relative overflow-hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .admin-metric-card-accent {
+    @apply rounded-2xl p-6 relative overflow-hidden border border-primary/25 bg-primary/[0.04];
+    box-shadow: var(--shadow-card);
+  }
+
+  .admin-panel-card {
+    @apply rounded-2xl bg-card p-6;
+    box-shadow: var(--shadow-card);
+  }
+
+  .admin-panel-card-flush {
+    @apply rounded-2xl bg-card overflow-hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .admin-nested-card {
+    @apply rounded-xl bg-secondary p-4;
+    box-shadow: 0 2px 12px hsl(262 40% 50% / 0.05);
+  }
+
+  .admin-table {
+    @apply w-full text-sm;
+  }
+
+  .admin-table-head {
+    @apply bg-secondary text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  .admin-table-th {
+    @apply px-4 py-3;
+  }
+
+  .admin-table-footer {
+    @apply px-4 py-2.5 border-t border-border text-xs text-muted-foreground bg-secondary/50;
+  }
+
+  .admin-card-toolbar {
+    @apply flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/50;
+  }
+
+  .admin-table-cell-mono {
+    @apply font-mono text-xs text-muted-foreground tabular-nums;
+  }
+
+  .admin-table-cell-money {
+    @apply tabular-nums font-medium;
+  }
+
+  .admin-table-cell-note {
+    @apply text-[11px] text-muted-foreground/80;
+  }
+
+  /* Login — escala fija en px (independiente del body 14px del panel) */
+  .login-page {
+    font-size: 16px;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+  }
+
+  .login-brand-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .login-badge {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .login-hero-title {
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+  }
+
+  @media (min-width: 1280px) {
+    .login-hero-title {
+      font-size: 2.25rem;
+    }
+  }
+
+  .login-hero-subtitle {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .login-feature-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .login-feature-desc {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .login-copyright {
+    font-size: 0.875rem;
+  }
+
+  .login-card-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .login-card-subtitle {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .login-field-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  .login-field-input {
+    font-size: 1rem !important;
+  }
+
+  .login-link {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .login-checkbox-label {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .login-error {
+    font-size: 0.875rem;
+  }
+
+  .login-submit-text {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .login-footer-note {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .login-input-surface {
+    background-color: #eff6ff !important;
+  }
+
+  .login-card {
+    box-shadow: var(--shadow-card);
+    animation: login-scale-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    transition:
+      box-shadow 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  .login-card:hover {
+    box-shadow:
+      0 8px 32px hsl(258 90% 66% / 0.12),
+      var(--shadow-card);
+    transform: translateY(-2px);
+  }
+
+  .login-feature-item {
+    animation: login-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .login-stagger-1 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
+  }
+
+  .login-stagger-2 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s backwards;
+  }
+
+  .login-stagger-3 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.19s backwards;
+  }
+
+  .login-stagger-4 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.26s backwards;
+  }
+
+  .login-stagger-5 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.33s backwards;
+  }
+
+  .login-stagger-6 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.4s backwards;
+  }
+
+  .login-stagger-7 {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.47s backwards;
+  }
+
+  /* Panel izquierdo — animaciones alineadas con AuthBrandPanel */
+  .login-left-panel .animate-fade-in {
+    animation: login-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
+  }
+
+  .login-left-panel .animate-stagger-up {
+    animation: login-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .login-left-panel .stagger-1 {
+    animation-delay: 0.12s;
+  }
+
+  .login-left-panel .stagger-2 {
+    animation-delay: 0.19s;
+  }
+
+  .login-left-panel .stagger-3 {
+    animation-delay: 0.26s;
+  }
+
+  .login-left-panel .stagger-4 {
+    animation-delay: 0.33s;
+  }
+
+  .login-left-panel .stagger-5 {
+    animation-delay: 0.4s;
+  }
+
+  .login-left-panel .highlight-item {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .login-left-panel .highlight-item:hover {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes login-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes login-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -204,6 +572,26 @@
   .login-submit-btn::before {
     animation: none !important;
   }
+
+  .login-card,
+  .login-feature-item,
+  .login-stagger-1,
+  .login-stagger-2,
+  .login-stagger-3,
+  .login-stagger-4,
+  .login-stagger-5,
+  .login-stagger-6,
+  .login-stagger-7,
+  .login-left-panel .animate-fade-in,
+  .login-left-panel .animate-stagger-up,
+  .login-left-panel .highlight-item {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .login-card:hover {
+    transform: none;
+  }
 }
 
 @keyframes login-btn-shine {
@@ -220,6 +608,7 @@
   overflow: hidden;
   isolation: isolate;
   transition: filter 0.2s ease;
+  background: var(--gradient-primary);
 }
 
 .login-submit-btn:hover {

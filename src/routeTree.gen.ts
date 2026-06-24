@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminHistorialAdelantosRouteImport } from './routes/admin.historial-adelantos'
 import { Route as AdminEmpresasRouteImport } from './routes/admin.empresas'
 import { Route as AdminAdelantosRouteImport } from './routes/admin.adelantos'
 
@@ -36,6 +37,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
+  id: '/historial-adelantos',
+  path: '/historial-adelantos',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminEmpresasRoute = AdminEmpresasRouteImport.update({
   id: '/empresas',
   path: '/empresas',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
+  '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
+  '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/admin/adelantos': typeof AdminAdelantosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
+  '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -79,9 +88,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/adelantos'
     | '/admin/empresas'
+    | '/admin/historial-adelantos'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/admin/adelantos' | '/admin/empresas' | '/admin'
+  to:
+    | '/'
+    | '/login'
+    | '/admin/adelantos'
+    | '/admin/empresas'
+    | '/admin/historial-adelantos'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -89,6 +105,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/adelantos'
     | '/admin/empresas'
+    | '/admin/historial-adelantos'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -128,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/historial-adelantos': {
+      id: '/admin/historial-adelantos'
+      path: '/historial-adelantos'
+      fullPath: '/admin/historial-adelantos'
+      preLoaderRoute: typeof AdminHistorialAdelantosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/empresas': {
       id: '/admin/empresas'
       path: '/empresas'
@@ -148,12 +172,14 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminAdelantosRoute: typeof AdminAdelantosRoute
   AdminEmpresasRoute: typeof AdminEmpresasRoute
+  AdminHistorialAdelantosRoute: typeof AdminHistorialAdelantosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdelantosRoute: AdminAdelantosRoute,
   AdminEmpresasRoute: AdminEmpresasRoute,
+  AdminHistorialAdelantosRoute: AdminHistorialAdelantosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
