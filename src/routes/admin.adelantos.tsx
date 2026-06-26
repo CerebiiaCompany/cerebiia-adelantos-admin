@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdmin, formatCOP, estadoLabel, type Adelanto, type EstadoAdelanto } from "@/lib/admin-store";
 import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
-import { syncAprobarSolicitud, syncPagarCuotasSolicitud } from "@/lib/adelantos-api-sync";
+import {
+  fetchAdelantosFromApi,
+  syncAprobarSolicitud,
+  syncMarcarEnRevision,
+  syncRechazarSolicitud,
+  syncSubirComprobante,
+} from "@/lib/adelantos-api-sync";
 import { listCuotasSolicitud } from "@/lib/api/adelantos";
 import { ApiError } from "@/lib/api/errors";
 import { isBackendUuid } from "@/lib/api/is-api-id";
@@ -56,7 +62,8 @@ export const Route = createFileRoute("/admin/adelantos")({
 const ESTADO_COLORS = ESTADO_BADGE_CLASSES;
 
 function AdelantosPage() {
-  const { empresas, adelantos, updateAdelantoEstado, rechazarAdelanto, marcarPagado } = useAdmin();
+  const { empresas, adelantos, updateAdelantoEstado, rechazarAdelanto, marcarPagado, replaceAdelantos } =
+    useAdmin();
   const { calcular } = useAdelantoParametros();
   const [viewing, setViewing] = useState<Adelanto | null>(null);
   const [paying, setPaying] = useState<Adelanto | null>(null);
@@ -64,12 +71,54 @@ function AdelantosPage() {
   const [viewingMotivo, setViewingMotivo] = useState<Adelanto | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(true);
+
+  const loadSolicitudes = useCallback(async () => {
+    setLoadingList(true);
+    setApiError(null);
+    try {
+      const fromApi = await fetchAdelantosFromApi();
+      replaceAdelantos(fromApi);
+    } catch (err) {
+      setApiError(
+        err instanceof ApiError
+          ? err.message
+          : "No se pudieron cargar las solicitudes desde el servidor.",
+      );
+    } finally {
+      setLoadingList(false);
+    }
+  }, [replaceAdelantos]);
+
+  useEffect(() => {
+    void loadSolicitudes();
+  }, [loadSolicitudes]);
 
   const handleEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
     if (adelanto.estado === "pagado") return;
     if (nuevoEstado === "rechazado" && adelanto.estado !== "rechazado") {
       setRejecting(adelanto);
       return;
+    }
+
+    if (nuevoEstado === "en_revision" && adelanto.estado === "solicitado") {
+      setApiLoading(true);
+      setApiError(null);
+      try {
+        await syncMarcarEnRevision(adelanto.id);
+      } catch (err) {
+        if (isBackendUuid(adelanto.id)) {
+          setApiError(
+            err instanceof ApiError
+              ? err.message
+              : "No se pudo marcar la solicitud en revisión.",
+          );
+          setApiLoading(false);
+          return;
+        }
+      } finally {
+        setApiLoading(false);
+      }
     }
 
     if (
@@ -98,23 +147,48 @@ function AdelantosPage() {
     updateAdelantoEstado(adelanto.id, nuevoEstado);
   };
 
-  const handleMarcarPagado = async (id: string, comprobanteUrl: string) => {
+  const handleMarcarPagado = async (id: string, file: File) => {
     setApiLoading(true);
     setApiError(null);
     try {
-      await syncPagarCuotasSolicitud(id);
+      const comprobanteUrl = await syncSubirComprobante(id, file);
+      marcarPagado(id, comprobanteUrl ?? file.name);
     } catch (err) {
       if (isBackendUuid(id)) {
         const message =
-          err instanceof ApiError ? err.message : "No se pudieron registrar las cuotas en el servidor.";
+          err instanceof ApiError
+            ? err.message
+            : "No se pudo registrar el comprobante en el servidor.";
         setApiError(message);
         setApiLoading(false);
         throw new Error(message);
       }
+      marcarPagado(id, file.name);
     } finally {
       setApiLoading(false);
     }
-    marcarPagado(id, comprobanteUrl);
+  };
+
+  const handleRechazar = async (motivo: string) => {
+    if (!rejecting) return;
+    setApiLoading(true);
+    setApiError(null);
+    try {
+      await syncRechazarSolicitud(rejecting.id, motivo);
+      rechazarAdelanto(rejecting.id, motivo);
+      setRejecting(null);
+    } catch (err) {
+      if (isBackendUuid(rejecting.id)) {
+        setApiError(
+          err instanceof ApiError ? err.message : "No se pudo rechazar la solicitud en el servidor.",
+        );
+      } else {
+        rechazarAdelanto(rejecting.id, motivo);
+        setRejecting(null);
+      }
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const {
@@ -166,8 +240,35 @@ function AdelantosPage() {
       />
 
       {apiError && (
-        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-          {apiError}
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 space-y-2">
+          <p className="text-sm text-destructive">{apiError}</p>
+          <p className="text-xs text-muted-foreground">
+            Se muestran datos locales de demostración hasta que el servidor responda correctamente.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled={loadingList}
+            onClick={() => void loadSolicitudes()}
+          >
+            {loadingList ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Reintentando…
+              </>
+            ) : (
+              "Reintentar carga"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {loadingList && (
+        <p className="text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 className="size-4 animate-spin" />
+          Cargando solicitudes…
         </p>
       )}
 
@@ -205,11 +306,12 @@ function AdelantosPage() {
             <tbody className="divide-y divide-border">
               {pendientesSolicitados.map((a, index) => {
                 const e = empresas.find((x) => x.id === a.empresaId);
+                const empresaNombre = a.empresaNombre ?? e?.nombre;
                 return (
                   <AdelantoRow
                     key={a.id}
                     adelanto={a}
-                    empresaNombre={e?.nombre}
+                    empresaNombre={empresaNombre}
                     queueIndex={index + 1}
                     showQueue
                     showFecha
@@ -280,11 +382,12 @@ function AdelantosPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((a) => {
                 const e = empresas.find((x) => x.id === a.empresaId);
+                const empresaNombre = a.empresaNombre ?? e?.nombre;
                 return (
                   <AdelantoRow
                     key={a.id}
                     adelanto={a}
-                    empresaNombre={e?.nombre}
+                    empresaNombre={empresaNombre}
                     desglose={calcular(a.monto, a.numeroCuotas)}
                     allowedEstados={["aprobado", "rechazado"]}
                     onEstadoChange={(v) => handleEstadoChange(a, v)}
@@ -319,8 +422,8 @@ function AdelantosPage() {
         adelanto={paying}
         desglose={paying ? calcular(paying.monto, paying.numeroCuotas) : null}
         onClose={() => setPaying(null)}
-        onPagar={async (url) => {
-          if (paying) await handleMarcarPagado(paying.id, url);
+        onPagar={async (file) => {
+          if (paying) await handleMarcarPagado(paying.id, file);
         }}
         loading={apiLoading}
       />
@@ -328,10 +431,8 @@ function AdelantosPage() {
         adelanto={rejecting}
         empresa={rejecting ? empresas.find((x) => x.id === rejecting.empresaId)?.nombre : undefined}
         onClose={() => setRejecting(null)}
-        onConfirm={(motivo) => {
-          if (rejecting) rechazarAdelanto(rejecting.id, motivo);
-          setRejecting(null);
-        }}
+        onConfirm={handleRechazar}
+        loading={apiLoading}
       />
       <MotivoRechazoDialog
         adelanto={viewingMotivo}
@@ -449,7 +550,7 @@ function AdelantoRow({
       </td>
       <td className="text-right">
         <div className="admin-table-cell-money tabular text-primary font-semibold">
-          {formatCOP(desglose.totalARecibir)}
+          {formatCOP(a.montoNeto ?? desglose.totalARecibir)}
         </div>
         <div className="admin-table-cell-note">neto al empleado</div>
       </td>
@@ -627,11 +728,13 @@ function RechazoDialog({
   empresa,
   onClose,
   onConfirm,
+  loading = false,
 }: {
   adelanto: Adelanto | null;
   empresa?: string;
   onClose: () => void;
-  onConfirm: (motivo: string) => void;
+  onConfirm: (motivo: string) => void | Promise<void>;
+  loading?: boolean;
 }) {
   const [motivo, setMotivo] = useState("");
 
@@ -642,11 +745,11 @@ function RechazoDialog({
     }
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nota = motivo.trim();
-    if (!nota) return;
-    onConfirm(nota);
+    if (!nota || loading) return;
+    await onConfirm(nota);
     setMotivo("");
   };
 
@@ -689,8 +792,15 @@ function RechazoDialog({
               <Button type="button" variant="ghost" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" variant="destructive" disabled={motivo.trim().length < 5}>
-                Confirmar rechazo
+              <Button type="submit" variant="destructive" disabled={motivo.trim().length < 5 || loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Rechazando…
+                  </>
+                ) : (
+                  "Confirmar rechazo"
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -890,7 +1000,7 @@ function PagoDialog({
   adelanto: Adelanto | null;
   desglose: DesgloseAdelanto | null;
   onClose: () => void;
-  onPagar: (url: string) => void | Promise<void>;
+  onPagar: (file: File) => void | Promise<void>;
   loading?: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -934,7 +1044,7 @@ function PagoDialog({
     e.preventDefault();
     if (!file || loading) return;
     try {
-      await onPagar(file.name);
+      await onPagar(file);
       setFile(null);
       onClose();
     } catch {

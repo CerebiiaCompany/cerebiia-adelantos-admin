@@ -40,7 +40,7 @@ async function executeRequest<T>(path: string, options: ApiRequestOptions): Prom
   const { auth = false, headers: initHeaders, ...init } = options;
   const headers = new Headers(initHeaders);
 
-  if (!headers.has("Content-Type") && init.body) {
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 

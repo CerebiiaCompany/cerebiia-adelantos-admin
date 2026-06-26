@@ -75,9 +75,14 @@ export type EstadoAdelanto = "solicitado" | "en_revision" | "aprobado" | "pagado
 export type Adelanto = {
   id: string;
   empresaId: string;
+  /** Nombre de empresa cuando viene del API (ids pueden no estar en el store local). */
+  empresaNombre?: string;
+  empresaNit?: string;
   empleadoNombre: string;
   empleadoCedula: string;
   monto: number;
+  /** Neto que recibe el empleado (desde API: monto_neto). */
+  montoNeto?: number;
   numeroCuotas: number;
   fechaSolicitud: string; // ISO
   estado: EstadoAdelanto;
@@ -111,6 +116,7 @@ type Store = {
   updateAdelantoEstado: (id: string, estado: EstadoAdelanto) => void;
   rechazarAdelanto: (id: string, motivoRechazo: string) => void;
   marcarPagado: (id: string, comprobanteUrl: string) => void;
+  replaceAdelantos: (adelantos: Adelanto[]) => void;
   crearCuentaCobro: (
     empresaId: string,
     periodo: string,
@@ -460,6 +466,11 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const replaceAdelantos: Store["replaceAdelantos"] = (next) => {
+    setAdelantos(next);
+    persist(empresas, next, empleados, cuentasCobro);
+  };
+
   const crearCuentaCobro: Store["crearCuentaCobro"] = (
     empresaId,
     periodo,
@@ -585,6 +596,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
       updateAdelantoEstado,
       rechazarAdelanto,
       marcarPagado,
+      replaceAdelantos,
       crearCuentaCobro,
       adjuntarDocumentoCobro,
       registrarEvidenciaPagoEmpresa,

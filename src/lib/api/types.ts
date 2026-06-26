@@ -96,7 +96,39 @@ export interface SolicitudAdelantoApi {
   numero_cuotas_snapshot: number;
   plazo_dias_snapshot: number;
   estado: EstadoSolicitudApi;
+  motivo_rechazo?: string | null;
+  comprobante_pago?: string | null;
   created_at: string;
+}
+
+export interface SolicitudAdminEmpleado {
+  id: string;
+  nombre: string;
+  documento: string;
+}
+
+export interface SolicitudAdminEmpresa {
+  id: string;
+  nombre: string;
+  nit: string;
+}
+
+export interface SolicitudAdminApi {
+  id: string;
+  monto: string;
+  monto_neto: string;
+  numero_cuotas_snapshot: number;
+  plazo_dias_snapshot: number;
+  estado: EstadoSolicitudApi;
+  motivo_rechazo: string | null;
+  comprobante_pago: string | null;
+  created_at: string;
+  empleado: SolicitudAdminEmpleado;
+  empresa: SolicitudAdminEmpresa;
+}
+
+export interface RechazarSolicitudPayload {
+  motivo_rechazo: string;
 }
 
 export interface CuotaAdelantoApi {
