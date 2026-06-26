@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { useAdmin, estadoLabel } from "@/lib/admin-store";
+import { useAdmin, estadoLabel, sumarMontoAdelantado, sumarMontoPagado } from "@/lib/admin-store";
+import { gananciaComisionPorMes } from "@/lib/dashboard-comision";
+import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
 import { ESTADO_TEXT_CLASSES } from "@/lib/adelanto-estado";
 import { getStoredUser } from "@/lib/auth-storage";
 import { PageHeader } from "@/components/admin/page-header";
@@ -9,7 +11,7 @@ import { AnimatedNumber } from "@/components/admin/animated-number";
 import { DashboardEmpresaChart, DashboardTrendChart } from "@/components/admin/dashboard-charts";
 import { useDashboardAnimationKey } from "@/hooks/use-dashboard-animation-key";
 import { useTimeBasedGreeting } from "@/hooks/use-time-based-greeting";
-import { Building2, Wallet, CheckCircle2, TrendingUp, ArrowUpRight } from "lucide-react";
+import { Building2, Wallet, CheckCircle2, TrendingUp, ArrowUpRight, Coins } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({ meta: [{ title: "Inicio — Panel" }] }),
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/admin/")({
 
 function Dashboard() {
   const { empresas, adelantos } = useAdmin();
+  const { valorComision } = useAdelantoParametros();
   const animationKey = useDashboardAnimationKey();
   const displayName = getStoredUser()?.full_name ?? "Administrador";
   const greeting = useTimeBasedGreeting(displayName);
@@ -25,10 +28,11 @@ function Dashboard() {
   const stats = useMemo(() => {
     const activas = empresas.filter((e) => e.activa).length;
     const totalAdelantos = adelantos.length;
-    const totalMonto = adelantos.reduce((s, a) => s + a.monto, 0);
-    const pagado = adelantos.filter((a) => a.estado === "pagado").reduce((s, a) => s + a.monto, 0);
-    return { activas, totalAdelantos, totalMonto, pagado };
-  }, [empresas, adelantos]);
+    const montoAdelantado = sumarMontoAdelantado(adelantos);
+    const pagado = sumarMontoPagado(adelantos);
+    const comisionMes = gananciaComisionPorMes(adelantos, valorComision);
+    return { activas, totalAdelantos, montoAdelantado, pagado, comisionMes };
+  }, [empresas, adelantos, valorComision]);
 
   const recientes = useMemo(
     () =>
@@ -60,7 +64,7 @@ function Dashboard() {
         }
       />
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
         <AdminMetricCard
           label="Empresas activas"
           iconTone="building"
@@ -88,7 +92,7 @@ function Dashboard() {
           iconTone="trending"
           value={
             <AnimatedNumber
-              value={stats.totalMonto}
+              value={stats.montoAdelantado}
               format="currency"
               animationKey={animationKey}
               delay={160}
@@ -97,7 +101,7 @@ function Dashboard() {
           sub={
             <span className="flex items-center gap-1">
               <ArrowUpRight className="size-3.5 text-primary" />
-              todos los estados
+              todas las solicitudes
             </span>
           }
           icon={TrendingUp}
@@ -114,8 +118,26 @@ function Dashboard() {
               delay={240}
             />
           }
-          sub="estado: pagado"
+          sub="con comprobante confirmado"
           icon={CheckCircle2}
+        />
+        <AdminMetricCard
+          label="Ganancia por comisión"
+          iconTone="trending"
+          value={
+            <AnimatedNumber
+              value={stats.comisionMes.total}
+              format="currency"
+              animationKey={animationKey}
+              delay={320}
+            />
+          }
+          sub={
+            stats.comisionMes.cantidad > 0
+              ? `${stats.comisionMes.cantidad} pago(s) · ${stats.comisionMes.mesLabel}`
+              : `Sin pagos en ${stats.comisionMes.mesLabel}`
+          }
+          icon={Coins}
         />
       </section>
 

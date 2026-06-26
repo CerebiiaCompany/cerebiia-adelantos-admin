@@ -10,7 +10,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
 import { cn } from "@/lib/utils";
-import { Building2, History, LayoutDashboard, Settings, Users, Wallet } from "lucide-react";
+import { Building2, ClipboardList, History, Landmark, LayoutDashboard, Settings, Users, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -21,6 +21,8 @@ const nav: AdminNavItem[] = [
   { to: "/admin/empresas", label: "Empresas", icon: Building2 },
   { to: "/admin/usuarios", label: "Usuarios", icon: Users },
   { to: "/admin/adelantos", label: "Adelantos", icon: Wallet },
+  { to: "/admin/control-pagos", label: "Control de pagos", icon: Landmark },
+  { to: "/admin/auditorias", label: "Auditorías", icon: ClipboardList },
   { to: "/admin/historial-adelantos", label: "Historial de adelantos", icon: History },
   { to: "/admin/configuracion", label: "Configuración", icon: Settings },
 ];

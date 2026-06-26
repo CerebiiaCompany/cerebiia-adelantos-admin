@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import { createEmpresa } from "@/lib/api/empresas";
 import { listUsers, deactivateUser } from "@/lib/api/users";
-import { useAdmin, formatCOP } from "@/lib/admin-store";
+import { useAdmin, formatCOP, sumarMontoAdelantado } from "@/lib/admin-store";
 import {
   loadEmpresasCache,
   mergeEmpresaRows,
@@ -283,7 +283,7 @@ function EmpresasPage() {
                 <th className="admin-table-th text-left hidden lg:table-cell">Admin</th>
                 <th className="admin-table-th text-right">Empleados</th>
                 <th className="admin-table-th text-right">Adelantos</th>
-                <th className="admin-table-th text-right">Total</th>
+                <th className="admin-table-th text-right">Monto adelantado</th>
                 <th className="admin-table-th text-center w-14"> </th>
                 <th className="admin-table-th text-right">Estado</th>
               </tr>
@@ -292,7 +292,7 @@ function EmpresasPage() {
               {rows.map((row) => {
                 const mock = mockEmpresas.find((e) => e.id === row.empresaId || e.nit === row.nit);
                 const list = mock ? adelantos.filter((a) => a.empresaId === mock.id) : [];
-                const total = list.reduce((s, a) => s + a.monto, 0);
+                const total = mock ? sumarMontoAdelantado(list) : 0;
                 const empleadosNomina = mock
                   ? empleados.filter((emp) => emp.empresaId === mock.id).length
                   : null;

@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, UserX, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Loader2, UserX, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -236,23 +236,6 @@ function UsuariosPage() {
           {error}
         </p>
       )}
-
-      <div className="mb-4 rounded-xl border border-border bg-secondary/40 px-4 py-3.5 flex gap-3 break-words">
-        <Info className="size-5 text-primary shrink-0 mt-0.5" />
-        <div className="text-sm text-muted-foreground space-y-1.5 min-w-0">
-          <p>
-            <span className="font-medium text-foreground">Empresas:</span>{" "}
-            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">POST /empresas/</code> — crea la
-            empresa (nombre, NIT) y el usuario administrador con rol empresa en un solo paso.
-          </p>
-          <p>
-            <span className="font-medium text-foreground">Empleados:</span>{" "}
-            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">POST /users/</code> — solo rol
-            empleado, sin datos de empresa. Los usuarios con rol empresa que ves aquí fueron creados
-            desde el módulo Empresas.
-          </p>
-        </div>
-      </div>
 
       <p className="mb-4 text-sm text-muted-foreground">
         {users.length} en el sistema · {users.filter((u) => u.is_active).length} activos

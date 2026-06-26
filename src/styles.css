@@ -858,3 +858,89 @@
     transform: scale(1.18);
   }
 }
+
+/* Admin — olas de fondo (morado → azul) */
+.admin-background-sky {
+  background: linear-gradient(
+    180deg,
+    hsl(262 45% 98%) 0%,
+    hsl(240 50% 99%) 38%,
+    hsl(0 0% 100%) 58%,
+    hsl(228 55% 98%) 100%
+  );
+}
+
+.admin-waves {
+  mask-image: linear-gradient(to top, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 55%, transparent 100%);
+}
+
+.admin-wave-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  animation: admin-wave-bob 14s ease-in-out infinite;
+}
+
+.admin-wave-layer--back {
+  opacity: 0.42;
+  animation-duration: 16s;
+  animation-delay: -2s;
+}
+
+.admin-wave-layer--mid {
+  opacity: 0.55;
+  animation-duration: 13s;
+  animation-delay: -5s;
+}
+
+.admin-wave-layer--front {
+  opacity: 0.68;
+  animation-duration: 11s;
+  animation-delay: -1s;
+}
+
+.admin-wave-track {
+  width: 200%;
+  height: 100%;
+  will-change: transform;
+  animation: admin-wave-drift linear infinite;
+  backface-visibility: hidden;
+}
+
+.admin-wave-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  shape-rendering: geometricPrecision;
+}
+
+.admin-wave-svg path {
+  shape-rendering: geometricPrecision;
+}
+
+@keyframes admin-wave-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes admin-wave-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-wave-layer,
+  .admin-wave-track {
+    animation: none !important;
+  }
+}

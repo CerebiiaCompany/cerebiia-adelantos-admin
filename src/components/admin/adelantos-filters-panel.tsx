@@ -1,6 +1,9 @@
 import { formatCOP, estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
 import { monthLabel } from "@/lib/adelantos-filters";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { cn } from "@/lib/utils";
+import { CheckCircle2, Eraser, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -28,6 +31,10 @@ type AdelantosFiltersPanelProps = {
   setFechaDesde?: (v: string) => void;
   setFechaHasta?: (v: string) => void;
   showFechaRango?: boolean;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
+  onExportExcel?: () => void;
+  exporting?: boolean;
 };
 
 export function AdelantosFiltersPanel({
@@ -46,9 +53,14 @@ export function AdelantosFiltersPanel({
   filteredCount,
   showMes = true,
   showFechaRango = false,
+  hasActiveFilters = false,
+  onClearFilters,
+  onExportExcel,
+  exporting = false,
 }: AdelantosFiltersPanelProps) {
   return (
-    <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 p-4">
+    <div className="admin-panel-card space-y-4 p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3">
       {showFechaRango && setFechaDesde && setFechaHasta && (
         <>
           <div className="space-y-1.5 w-full sm:w-auto">
@@ -128,10 +140,50 @@ export function AdelantosFiltersPanel({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:ml-auto text-left sm:text-right w-full sm:w-auto border-t border-border sm:border-t-0 pt-3 sm:pt-0">
-        <div className="admin-kpi-label">Mostrando</div>
-        <div className="admin-kpi-value text-lg sm:text-xl mt-1">{filteredCount}</div>
-        <div className="admin-kpi-sub mt-0.5">solicitudes</div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
+        <div className="text-left sm:text-right">
+          <div className="admin-kpi-label">Mostrando</div>
+          <div className="admin-kpi-value text-lg sm:text-xl mt-1">{filteredCount}</div>
+          <div className="admin-kpi-sub mt-0.5">solicitudes filtradas</div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {onClearFilters && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={!hasActiveFilters}
+              onClick={onClearFilters}
+            >
+              <Eraser className="size-4 mr-2" />
+              Limpiar filtros
+            </Button>
+          )}
+          {onExportExcel && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              disabled={exporting || filteredCount === 0}
+              onClick={onExportExcel}
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Exportando…
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="size-4 mr-2" />
+                  Exportar Excel
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -151,13 +203,18 @@ export function AdelantosStat({
 
 export function AdelantosPorEmpresa({
   items,
+  subtitle = "Suma de adelantos en el filtro actual.",
+  modoCobro = false,
 }: {
   items: {
     empresa?: Empresa;
     count: number;
     total: number;
     aprobado: number;
+    verificada?: boolean;
   }[];
+  subtitle?: string;
+  modoCobro?: boolean;
 }) {
   if (items.length === 0) return null;
 
@@ -166,16 +223,38 @@ export function AdelantosPorEmpresa({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="admin-section-title">Total a cobrar por empresa</h2>
-          <p className="admin-section-subtitle text-xs">Suma de adelantos en el filtro actual.</p>
+          <p className="admin-section-subtitle text-xs">{subtitle}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {items.map(({ empresa, count, total, aprobado }) => (
-          <div key={empresa?.id} className="admin-nested-card min-w-0">
+        {items.map(({ empresa, count, total, aprobado, verificada }) => (
+          <div
+            key={empresa?.id}
+            className={cn(
+              "admin-nested-card min-w-0",
+              verificada && modoCobro && "border-success/30 bg-success/[0.04]",
+            )}
+          >
             <div className="font-medium truncate">{empresa?.nombre ?? "—"}</div>
             <div className="text-xs text-muted-foreground mb-3">{count} adelantos</div>
-            <div className="admin-kpi-value text-xl sm:text-2xl break-words">{formatCOP(total)}</div>
-            {aprobado > 0 && (
+            <div
+              className={cn(
+                "admin-kpi-value text-xl sm:text-2xl break-words tabular",
+                verificada && modoCobro && "text-muted-foreground",
+              )}
+            >
+              {formatCOP(total)}
+            </div>
+            {modoCobro && verificada && (
+              <div className="text-xs text-success font-medium mt-1 flex items-center gap-1">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                Cobro confirmado
+              </div>
+            )}
+            {!verificada && aprobado > 0 && (
+              <div className="text-xs text-primary mt-1 tabular">{formatCOP(aprobado)} por verificar</div>
+            )}
+            {!modoCobro && aprobado > 0 && (
               <div className="text-xs text-primary mt-1 tabular">{formatCOP(aprobado)} aprobado</div>
             )}
           </div>

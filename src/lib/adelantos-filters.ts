@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import type { Adelanto, Empresa } from "@/lib/admin-store";
+import type { Adelanto, Empresa, EstadoAdelanto } from "@/lib/admin-store";
+
+export type AdelantosFiltersOptions = {
+  /** Estados visibles cuando el filtro de estado está en "Todos". */
+  defaultEstados?: EstadoAdelanto[];
+  /** Orden por fecha de solicitud. */
+  sortOrder?: "asc" | "desc";
+};
 
 export function monthKey(d: string) {
   const date = new Date(d);
@@ -24,7 +31,12 @@ function inDateRange(fechaSolicitud: string, desde: string, hasta: string) {
   return true;
 }
 
-export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) {
+export function useAdelantosFilters(
+  adelantos: Adelanto[],
+  empresas: Empresa[],
+  options: AdelantosFiltersOptions = {},
+) {
+  const { defaultEstados, sortOrder = "desc" } = options;
   const months = useMemo(() => {
     const set = new Set(adelantos.map((a) => monthKey(a.fechaSolicitud)));
     return Array.from(set).sort().reverse();
@@ -37,13 +49,21 @@ export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) 
   const [estado, setEstado] = useState<string>("all");
 
   const filtered = useMemo(() => {
-    return adelantos
+    const sorted = adelantos
       .filter((a) => (mes === "all" ? true : monthKey(a.fechaSolicitud) === mes))
       .filter((a) => inDateRange(a.fechaSolicitud, fechaDesde, fechaHasta))
       .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
-      .filter((a) => (estado === "all" ? true : a.estado === estado))
-      .sort((a, b) => +new Date(b.fechaSolicitud) - +new Date(a.fechaSolicitud));
-  }, [adelantos, mes, fechaDesde, fechaHasta, empresaId, estado]);
+      .filter((a) => {
+        if (estado !== "all") return a.estado === estado;
+        if (defaultEstados) return defaultEstados.includes(a.estado);
+        return true;
+      });
+
+    return sorted.sort((a, b) => {
+      const diff = +new Date(a.fechaSolicitud) - +new Date(b.fechaSolicitud);
+      return sortOrder === "asc" ? diff : -diff;
+    });
+  }, [adelantos, mes, fechaDesde, fechaHasta, empresaId, estado, defaultEstados, sortOrder]);
 
   const totals = useMemo(() => {
     const total = filtered.reduce((s, a) => s + a.monto, 0);
@@ -68,6 +88,21 @@ export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) 
       .sort((a, b) => b.total - a.total);
   }, [filtered, empresas]);
 
+  const clearFilters = () => {
+    setMes("all");
+    setFechaDesde("");
+    setFechaHasta("");
+    setEmpresaId("all");
+    setEstado("all");
+  };
+
+  const hasActiveFilters =
+    mes !== "all" ||
+    fechaDesde !== "" ||
+    fechaHasta !== "" ||
+    empresaId !== "all" ||
+    estado !== "all";
+
   return {
     months,
     mes,
@@ -83,5 +118,7 @@ export function useAdelantosFilters(adelantos: Adelanto[], empresas: Empresa[]) 
     filtered,
     totals,
     porEmpresa,
+    clearFilters,
+    hasActiveFilters,
   };
 }

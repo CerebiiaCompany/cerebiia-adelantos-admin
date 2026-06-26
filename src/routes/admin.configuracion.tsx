@@ -7,12 +7,13 @@ import {
   updateConfiguracion,
 } from "@/lib/api/configuracion";
 import { ApiError } from "@/lib/api/errors";
+import { writeComisionCache, readComisionCache, DEFAULT_COMISION_VALOR } from "@/lib/adelanto-calculo";
 import type { Comision, ConfiguracionGlobal, HistorialConfiguracion } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Percent, Save } from "lucide-react";
+import { Loader2, Coins, Save } from "lucide-react";
 
 export const Route = createFileRoute("/admin/configuracion")({
   head: () => ({ meta: [{ title: "Configuración — Panel" }] }),
@@ -30,7 +31,8 @@ function ConfiguracionPage() {
     numero_maximo_cuotas: "",
     plazo_maximo_dias: "",
   });
-  const [comisionForm, setComisionForm] = useState({ porcentaje_comision: "" });
+  const [comisionBackendOk, setComisionBackendOk] = useState(false);
+  const [comisionForm, setComisionForm] = useState({ valor_comision: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingComision, setSavingComision] = useState(false);
@@ -44,7 +46,10 @@ function ConfiguracionPage() {
     setError(null);
     setComisionError(null);
     setComisionPendienteBackend(null);
+    setComisionBackendOk(false);
     setComisionDisponible(false);
+
+    const cachedValor = readComisionCache() ?? DEFAULT_COMISION_VALOR;
 
     const results = await Promise.allSettled([
       getConfiguracion(),
@@ -71,18 +76,25 @@ function ConfiguracionPage() {
     }
 
     if (comisionResult.status === "fulfilled") {
+      setComisionBackendOk(true);
       setComisionDisponible(true);
       setComision(comisionResult.value);
-      setComisionForm({ porcentaje_comision: comisionResult.value.porcentaje_comision });
+      setComisionForm({ valor_comision: comisionResult.value.valor_comision });
+      writeComisionCache(comisionResult.value.valor_comision);
     } else {
+      setComisionDisponible(true);
+      setComisionForm({ valor_comision: cachedValor });
       const err = comisionResult.reason;
       if (err instanceof ApiError && err.status === 404) {
         setComisionPendienteBackend(
-          "El backend aún no expone GET /api/v1/comision/. La UI está lista; cuando backend lo publique, este formulario se activará automáticamente.",
+          "El backend aún no expone GET /api/v1/comision/. Puedes configurar la comisión localmente; se aplicará en cálculos hasta que el backend esté disponible.",
         );
       } else {
         setComisionError(
-          err instanceof ApiError ? err.message : "No se pudo cargar la comisión.",
+          err instanceof ApiError ? err.message : "No se pudo cargar la comisión desde el servidor.",
+        );
+        setComisionPendienteBackend(
+          "Usando valor guardado localmente. Al reconectar con el backend podrás sincronizar.",
         );
       }
     }
@@ -125,15 +137,31 @@ function ConfiguracionPage() {
     setComisionError(null);
     setComisionSuccess(null);
 
+    const valor = comisionForm.valor_comision.trim();
+    if (!/^\d+$/.test(valor)) {
+      setComisionError("Ingresa un valor entero en pesos (sin decimales).");
+      setSavingComision(false);
+      return;
+    }
+
+    writeComisionCache(valor);
+    setComisionForm({ valor_comision: valor });
+
+    if (!comisionBackendOk) {
+      setComisionSuccess("Comisión guardada localmente. Se aplicará en los cálculos del panel.");
+      setSavingComision(false);
+      return;
+    }
+
     try {
-      const updated = await updateComision({
-        porcentaje_comision: comisionForm.porcentaje_comision,
-      });
+      const updated = await updateComision({ valor_comision: valor });
       setComision(updated);
-      setComisionForm({ porcentaje_comision: updated.porcentaje_comision });
+      setComisionForm({ valor_comision: updated.valor_comision });
+      writeComisionCache(updated.valor_comision);
       setComisionSuccess("Comisión actualizada correctamente.");
     } catch (err) {
-      setComisionError(err instanceof ApiError ? err.message : "No se pudo guardar la comisión.");
+      setComisionSuccess("Comisión guardada localmente. No se pudo sincronizar con el servidor.");
+      setComisionError(err instanceof ApiError ? err.message : "No se pudo guardar la comisión en el servidor.");
     } finally {
       setSavingComision(false);
     }
@@ -249,7 +277,7 @@ function ConfiguracionPage() {
               <div>
                 <h2 className="admin-section-title text-lg">Comisión</h2>
                 <p className="admin-section-subtitle text-base mt-1">
-                  Porcentaje de comisión cobrado por cada adelanto procesado.
+                  Tarifa fija en pesos cobrada por cada cuota del adelanto (se descuenta del monto solicitado).
                 </p>
               </div>
 
@@ -271,26 +299,26 @@ function ConfiguracionPage() {
               )}
 
               <div className="space-y-1.5 flex-1">
-                <Label htmlFor="comision">% comisión</Label>
+                <Label htmlFor="comision">Valor comisión (COP)</Label>
                 <div className="relative max-w-md">
-                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                  <Coins className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="comision"
                     required={comisionDisponible}
                     disabled={!comisionDisponible}
                     type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="100"
+                    step="1"
+                    min="0"
+                    inputMode="numeric"
                     className="pl-9"
-                    placeholder={comisionDisponible ? undefined : "Pendiente backend"}
-                    value={comisionForm.porcentaje_comision}
+                    placeholder="Ej. 5000"
+                    value={comisionForm.valor_comision}
                     onChange={(e) =>
-                      setComisionForm({ porcentaje_comision: e.target.value })
+                      setComisionForm({ valor_comision: e.target.value.replace(/\D/g, "") })
                     }
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Entre 0.01 y 100.00</p>
+                <p className="text-xs text-muted-foreground">Entero en pesos colombianos (≥ 0)</p>
               </div>
 
               <div className="mt-auto space-y-4 pt-2">
@@ -306,7 +334,7 @@ function ConfiguracionPage() {
 
                 <Button
                   type="submit"
-                  disabled={!comisionDisponible || savingComision || !comisionForm.porcentaje_comision}
+                  disabled={!comisionDisponible || savingComision || comisionForm.valor_comision === ""}
                   className="w-full sm:w-auto"
                 >
                   {savingComision ? (

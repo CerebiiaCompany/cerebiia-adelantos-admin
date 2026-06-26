@@ -76,10 +76,10 @@ export interface HistorialConfiguracion {
 }
 
 export interface Comision {
-  porcentaje_comision: string;
+  valor_comision: string;
   updated_at: string;
 }
 
 export interface UpdateComisionPayload {
-  porcentaje_comision: string;
+  valor_comision: string;
 }

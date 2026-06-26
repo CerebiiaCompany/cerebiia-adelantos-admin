@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import type { Adelanto, Empresa, Empleado } from "@/lib/admin-store";
-import { calcularSaldoDisponible, calcularTotalAdelantadoEmpleado, formatCOP } from "@/lib/admin-store";
+import {
+  calcularTotalAdelantadoEmpleado,
+  calcularTotalPagadoEmpleado,
+  formatCOP,
+} from "@/lib/admin-store";
+import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
+import { calcularSaldoDisponibleNeto } from "@/lib/cuotas-adelanto";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +25,7 @@ type EmpresaNominaDialogProps = {
 
 export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: EmpresaNominaDialogProps) {
   const [busqueda, setBusqueda] = useState("");
+  const { valorComision } = useAdelantoParametros();
 
   const lista = useMemo(() => {
     if (!empresa) return [];
@@ -82,6 +89,7 @@ export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: 
                   <th className="admin-table-th text-right">Salario</th>
                   <th className="admin-table-th text-right">Saldo disponible</th>
                   <th className="admin-table-th text-right">Total adelantado</th>
+                  <th className="admin-table-th text-right">Pagado</th>
                   <th className="admin-table-th text-left">Banco</th>
                   <th className="admin-table-th text-left">No. cuenta</th>
                   <th className="admin-table-th text-left">Tipo cuenta</th>
@@ -93,6 +101,8 @@ export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: 
               <tbody className="divide-y divide-border">
                 {lista.map((e) => {
                   const totalAdelantado = calcularTotalAdelantadoEmpleado(e, adelantos);
+                  const totalPagado = calcularTotalPagadoEmpleado(e, adelantos);
+                  const saldo = calcularSaldoDisponibleNeto(e, adelantos, valorComision);
                   return (
                   <tr key={e.id} className="hover:bg-muted/30">
                     <td className="admin-table-cell-title whitespace-nowrap">{e.nombre}</td>
@@ -100,10 +110,13 @@ export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: 
                     <td className="admin-table-cell-mono">{e.documento}</td>
                     <td className="text-right admin-table-cell-money">{formatCOP(e.salario)}</td>
                     <td className="text-right admin-table-cell-money text-primary">
-                      {formatCOP(calcularSaldoDisponible(e.salario))}
+                      {formatCOP(saldo.saldoDisponible)}
                     </td>
                     <td className="text-right admin-table-cell-money">
                       {formatCOP(totalAdelantado)}
+                    </td>
+                    <td className="text-right admin-table-cell-money text-success">
+                      {formatCOP(totalPagado)}
                     </td>
                     <td className="text-muted-foreground">{e.banco}</td>
                     <td className="tabular admin-table-cell-mono">{e.numeroCuenta}</td>
@@ -116,7 +129,7 @@ export function EmpresaNominaDialog({ empresa, empleados, adelantos, onClose }: 
                 })}
                 {lista.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="admin-table-empty">
+                    <td colSpan={13} className="admin-table-empty">
                       {busqueda
                         ? "No se encontraron empleados con ese criterio."
                         : "Esta empresa aún no tiene empleados registrados en nómina."}
