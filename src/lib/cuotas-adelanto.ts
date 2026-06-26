@@ -1,8 +1,8 @@
 import type { Adelanto, Empleado } from "@/lib/admin-store";
 import { calcularSaldoDisponible, empleadoCoincideAdelanto } from "@/lib/admin-store";
 import { calcularDesgloseAdelanto } from "@/lib/adelanto-calculo";
-import type { ResumenCobroEmpresa } from "@/lib/cuenta-cobro";
-import { periodoLabel } from "@/lib/cuenta-cobro";
+import type { CuentaCobro, ResumenCobroEmpresa } from "@/lib/cuenta-cobro";
+import { periodoFromDate, periodoLabel } from "@/lib/periodo";
 
 export type EstadoCuota = "pendiente" | "descontada";
 
@@ -19,22 +19,16 @@ export type FilaDetalleCuota = {
   adelantoId: string;
   empleadoNombre: string;
   empleadoCedula: string;
-  /** Cuota que se informa o descontó en esta cuenta de cobro (1 … N). */
-  numeroCuota: number;
+  fechaSolicitud: string;
   totalCuotas: number;
-  /** Monto total solicitado en el adelanto. */
   montoSolicitado: number;
-  /** Neto que recibió el empleado (adelanto − comisión total). */
   montoARecibir: number;
-  /** Valor descontado en nómina por esta cuota. */
+  /** Valor mensual a descontar en nómina. */
   valorDescuentoNomina: number;
-  /** Comisión total del adelanto (tarifa × número de cuotas). */
+  periodoInicioDescuento: string;
   comisionTotal: number;
-  /** Tarifa fija de comisión por cuota (config. super admin). */
   tarifaComision: number;
-  estado: EstadoCuota | "a_informar";
-  periodoDescuento?: string;
-  fechaDescuento?: string;
+  estado: "a_informar" | "cobro_saldado";
 };
 
 export type ResumenSaldoEmpleado = {
@@ -46,6 +40,68 @@ export type ResumenSaldoEmpleado = {
   cuotasDescontadas: number;
   cuotasPendientes: number;
 };
+
+/** Monto completo a cobrar a la empresa por el adelanto (neto + comisión total). */
+export function calcularMontoCobroAdelanto(
+  adelanto: Adelanto,
+  valorComision: string | number,
+): { montoPagado: number; montoComision: number; montoTotalCobrar: number } {
+  const d = calcularDesgloseAdelanto(adelanto.monto, adelanto.numeroCuotas, valorComision);
+  return {
+    montoPagado: d.totalARecibir,
+    montoComision: d.valorComision,
+    montoTotalCobrar: d.totalARecibir + d.valorComision,
+  };
+}
+
+/** @deprecated Usar calcularMontoCobroAdelanto */
+export const calcularMontoCobroCuotaAdelanto = calcularMontoCobroAdelanto;
+
+/** La empresa ya pagó y el super admin verificó la evidencia: deuda = $0. */
+export function cuentaCobroVerificadaParaAdelanto(
+  adelanto: Adelanto,
+  cuentasCobro: CuentaCobro[],
+): boolean {
+  return cuentasCobro.some(
+    (c) => c.estado === "verificada" && c.adelantoIds.includes(adelanto.id),
+  );
+}
+
+export function adelantoCobroEmpresaSaldado(
+  adelanto: Adelanto,
+  cuentasCobro?: CuentaCobro[],
+): boolean {
+  if (cuentasCobro?.length) {
+    return cuentaCobroVerificadaParaAdelanto(adelanto, cuentasCobro);
+  }
+  return adelanto.cobroEmpresaVerificado === true;
+}
+
+/**
+ * Un adelanto se cobra a la empresa una sola vez, en el periodo en que fue pagado al empleado.
+ * El saldo solo queda en $0 cuando la cuenta de cobro está verificada.
+ */
+export function adelantoDebeCobrarseEnPeriodo(
+  adelanto: Adelanto,
+  periodo: string,
+  cuentasCobro?: CuentaCobro[],
+): boolean {
+  if (adelanto.estado !== "pagado") return false;
+  if (adelantoCobroEmpresaSaldado(adelanto, cuentasCobro)) return false;
+  const periodoPago = periodoFromDate(adelanto.fechaPago ?? adelanto.fechaSolicitud);
+  return periodo === periodoPago;
+}
+
+export function listarPeriodosCobro(adelantos: Adelanto[]): string[] {
+  const set = new Set<string>();
+
+  for (const a of adelantos) {
+    if (a.estado !== "pagado") continue;
+    set.add(periodoFromDate(a.fechaPago ?? a.fechaSolicitud));
+  }
+
+  return Array.from(set).sort((a, b) => b.localeCompare(a));
+}
 
 export function inicializarRegistroCuotas(
   adelanto: Adelanto,
@@ -74,27 +130,7 @@ export function obtenerRegistroCuotas(
   return [];
 }
 
-export function descontarSiguienteCuota(
-  registro: RegistroCuota[],
-  cuentaCobroId: string,
-  periodo: string,
-): RegistroCuota[] {
-  const pendiente = registro.find((c) => c.estado === "pendiente");
-  if (!pendiente) return registro;
-
-  return registro.map((c) =>
-    c.numero === pendiente.numero
-      ? {
-          ...c,
-          estado: "descontada" as const,
-          periodoDescuento: periodo,
-          fechaDescuento: new Date().toISOString(),
-          cuentaCobroId,
-        }
-      : c,
-  );
-}
-
+/** Al verificar el cobro: deuda con empresa = $0; cuotas quedan solo para descuento en nómina. */
 export function aplicarCuotasPorVerificacion(
   adelanto: Adelanto,
   cuentaCobroId: string,
@@ -108,7 +144,11 @@ export function aplicarCuotasPorVerificacion(
   return {
     ...adelanto,
     cuotasActivadas: true,
-    registroCuotas: descontarSiguienteCuota(base, cuentaCobroId, periodo),
+    cobroEmpresaVerificado: true,
+    fechaCobroEmpresa: new Date().toISOString(),
+    cuentaCobroId,
+    periodoInicioDescuento: periodo,
+    registroCuotas: base,
   };
 }
 
@@ -127,8 +167,9 @@ export function calcularSaldoDisponibleNeto(
   let cuotasPendientes = 0;
 
   for (const a of delEmpleado) {
+    const d = calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision);
+
     if (!a.cuotasActivadas) {
-      const d = calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision);
       comprometido += d.montoSolicitado;
       cuotasPendientes += d.numeroCuotas;
       continue;
@@ -156,15 +197,15 @@ export function calcularSaldoDisponibleNeto(
   };
 }
 
-export function contarCuotasFuturas(
+/** Total de cuotas mensuales que la empresa debe descontar en nómina (informativo). */
+export function sumarCuotasNominaInformadas(
   adelantos: Adelanto[],
   valorComision: string | number,
 ): number {
   let total = 0;
   for (const a of adelantos) {
-    const registro = obtenerRegistroCuotas(a, valorComision);
-    const pendientes = registro.filter((c) => c.estado === "pendiente").length;
-    total += Math.max(0, pendientes > 0 ? pendientes - 1 : 0);
+    const d = calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision);
+    total += d.numeroCuotas;
   }
   return total;
 }
@@ -176,50 +217,34 @@ export function buildFilasDetalleCuotas(
   const filas: FilaDetalleCuota[] = [];
   const cuenta = resumen.cuentaCobro;
   const cuentaVerificada = cuenta?.estado === "verificada";
+  const periodoCobro = resumen.periodo;
 
   for (const a of resumen.adelantosPagados) {
     const desglose = calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision);
-    const registro = obtenerRegistroCuotas(a, valorComision);
-    const totalCuotas = registro.length || desglose.numeroCuotas;
-
-    const descontadaEnCuenta =
-      cuentaVerificada && cuenta
-        ? registro.find((c) => c.cuentaCobroId === cuenta.id)
-        : undefined;
-
-    const primeraPendiente = registro.find((c) => c.estado === "pendiente");
-    const numeroCuota = descontadaEnCuenta?.numero ?? primeraPendiente?.numero ?? 1;
-
-    let estado: FilaDetalleCuota["estado"];
-    if (descontadaEnCuenta) {
-      estado = "descontada";
-    } else if (primeraPendiente) {
-      estado = cuentaVerificada ? "pendiente" : "a_informar";
-    } else {
-      estado = "descontada";
-    }
+    const periodoInicio =
+      a.periodoInicioDescuento ??
+      (cuentaVerificada && cuenta ? cuenta.periodo : periodoCobro);
 
     filas.push({
       adelantoId: a.id,
       empleadoNombre: a.empleadoNombre,
       empleadoCedula: a.empleadoCedula,
-      numeroCuota,
-      totalCuotas,
+      fechaSolicitud: a.fechaSolicitud,
+      totalCuotas: desglose.numeroCuotas,
       montoSolicitado: desglose.montoSolicitado,
       montoARecibir: desglose.totalARecibir,
       valorDescuentoNomina: desglose.valorCuota,
+      periodoInicioDescuento: periodoInicio,
       comisionTotal: desglose.valorComision,
       tarifaComision: desglose.tarifaComision,
-      estado,
-      periodoDescuento: descontadaEnCuenta?.periodoDescuento,
-      fechaDescuento: descontadaEnCuenta?.fechaDescuento,
+      estado: cuentaVerificada ? "cobro_saldado" : "a_informar",
     });
   }
 
   return filas.sort((a, b) => {
-    const name = a.empleadoNombre.localeCompare(b.empleadoNombre);
-    if (name !== 0) return name;
-    return a.numeroCuota - b.numeroCuota;
+    const byDate = a.fechaSolicitud.localeCompare(b.fechaSolicitud);
+    if (byDate !== 0) return byDate;
+    return a.empleadoNombre.localeCompare(b.empleadoNombre);
   });
 }
 
@@ -263,4 +288,15 @@ export function buildResumenSaldosEmpresa(
 export function formatPeriodoDescuento(periodo?: string): string {
   if (!periodo) return "—";
   return periodoLabel(periodo);
+}
+
+export function formatFechaSolicitud(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { DEFAULT_MAX_CUOTAS, clampNumeroCuotas, inferNumeroCuotas, assignNumeroCuotasDemo } from "@/lib/adelanto-calculo";
 import type { CuentaCobro } from "@/lib/cuenta-cobro";
 import { calcularMontosCobro } from "@/lib/cuenta-cobro";
-import { aplicarCuotasPorVerificacion } from "@/lib/cuotas-adelanto";
+import { aplicarCuotasPorVerificacion, adelantoDebeCobrarseEnPeriodo } from "@/lib/cuotas-adelanto";
 import { DEFAULT_COMISION_VALOR, readComisionCache } from "@/lib/adelanto-calculo";
 import { leerAuditorias, registrarAuditoriaAdelanto, type RegistroAuditoria } from "@/lib/auditoria";
 import type { RegistroCuota } from "@/lib/cuotas-adelanto";
@@ -92,6 +92,11 @@ export type Adelanto = {
   fechaRechazo?: string;
   cuentaCobroId?: string;
   cuotasActivadas?: boolean;
+  /** La empresa ya pagó el adelanto completo; deuda con plataforma = $0. */
+  cobroEmpresaVerificado?: boolean;
+  fechaCobroEmpresa?: string;
+  /** Mes desde el cual la empresa debe descontar en nómina (YYYY-MM). */
+  periodoInicioDescuento?: string;
   registroCuotas?: RegistroCuota[];
 };
 
@@ -247,6 +252,26 @@ function normalizeAdelanto(raw: Adelanto): Adelanto {
   return { ...raw, numeroCuotas };
 }
 
+/** Solo marca cobro saldado si la cuenta de cobro está verificada por el super admin. */
+function reconcileCobroEmpresa(
+  adelantos: Adelanto[],
+  cuentasCobro: CuentaCobro[],
+): Adelanto[] {
+  const idsEnCuentaVerificada = new Set(
+    cuentasCobro
+      .filter((c) => c.estado === "verificada")
+      .flatMap((c) => c.adelantoIds),
+  );
+
+  return adelantos.map((a) => {
+    const saldado = idsEnCuentaVerificada.has(a.id);
+    if (saldado) {
+      return { ...a, cobroEmpresaVerificado: true, cuotasActivadas: true };
+    }
+    return { ...a, cobroEmpresaVerificado: false, cuotasActivadas: false };
+  });
+}
+
 function applyCuotasDemoMigration(adelantos: Adelanto[]): Adelanto[] {
   if (typeof window === "undefined") return adelantos;
   if (localStorage.getItem(CUOTAS_DEMO_MIGRATION_KEY)) return adelantos;
@@ -280,14 +305,16 @@ function load(): {
       if (!parsed.empleados?.length) {
         parsed.empleados = seedEmpleados(parsed.empresas ?? []);
       }
-      const adelantos = applyCuotasDemoMigration(
-        (parsed.adelantos ?? []).map(normalizeAdelanto),
+      const cuentasCobro = parsed.cuentasCobro ?? [];
+      const adelantos = reconcileCobroEmpresa(
+        applyCuotasDemoMigration((parsed.adelantos ?? []).map(normalizeAdelanto)),
+        cuentasCobro,
       );
       const data = {
         empresas: (parsed.empresas ?? []).map(normalizeEmpresa),
         adelantos,
         empleados: parsed.empleados ?? [],
-        cuentasCobro: parsed.cuentasCobro ?? [],
+        cuentasCobro,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       return data;
@@ -444,7 +471,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
         a.empresaId === empresaId &&
         a.estado === "pagado" &&
         adelantoIds.includes(a.id) &&
-        !a.cuentaCobroId,
+        adelantoDebeCobrarseEnPeriodo(a, periodo, cuentasCobro),
     );
     if (!lista.length) return null;
 
@@ -463,12 +490,8 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
     };
 
     const nextCc = [...cuentasCobro, nueva];
-    const nextA = adelantos.map((a) =>
-      nueva.adelantoIds.includes(a.id) ? { ...a, cuentaCobroId: nueva.id } : a,
-    );
     setCuentasCobro(nextCc);
-    setAdelantos(nextA);
-    persist(empresas, nextA, empleados, nextCc);
+    persist(empresas, adelantos, empleados, nextCc);
     return nueva;
   };
 

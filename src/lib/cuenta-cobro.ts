@@ -1,5 +1,11 @@
 import type { Adelanto, Empresa } from "@/lib/admin-store";
-import { calcularDesgloseAdelanto } from "@/lib/adelanto-calculo";
+import {
+  adelantoDebeCobrarseEnPeriodo,
+  adelantoCobroEmpresaSaldado,
+  calcularMontoCobroAdelanto,
+  listarPeriodosCobro,
+} from "@/lib/cuotas-adelanto";
+export { periodoFromDate, periodoLabel } from "@/lib/periodo";
 
 export type EstadoCuentaCobro =
   | "borrador"
@@ -41,17 +47,6 @@ export const ESTADO_CUENTA_COBRO_CLASSES: Record<EstadoCuentaCobro, string> = {
   rechazada: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
-export function periodoFromDate(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-export function periodoLabel(periodo: string): string {
-  const [y, m] = periodo.split("-");
-  const date = new Date(Number(y), Number(m) - 1, 1);
-  return date.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
-}
-
 export type ResumenCobroEmpresa = {
   key: string;
   empresaId: string;
@@ -68,14 +63,16 @@ export type ResumenCobroEmpresa = {
 export function calcularMontosCobro(
   adelantos: Adelanto[],
   valorComision: string | number,
+  cuentasCobro?: CuentaCobro[],
 ): Pick<ResumenCobroEmpresa, "montoPagado" | "montoComision" | "montoTotalCobrar"> {
   let montoPagado = 0;
   let montoComision = 0;
 
   for (const a of adelantos) {
-    const d = calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision);
-    montoPagado += d.totalARecibir;
-    montoComision += d.valorComision;
+    if (adelantoCobroEmpresaSaldado(a, cuentasCobro)) continue;
+    const m = calcularMontoCobroAdelanto(a, valorComision);
+    montoPagado += m.montoPagado;
+    montoComision += m.montoComision;
   }
 
   return {
@@ -92,17 +89,23 @@ export function buildResumenesCobroEmpresa(
   periodo: string,
   valorComision: string | number,
 ): ResumenCobroEmpresa[] {
-  const pagados = adelantos.filter((a) => {
-    if (a.estado !== "pagado") return false;
-    const ref = a.fechaPago ?? a.fechaSolicitud;
-    return periodoFromDate(ref) === periodo;
-  });
-
   const porEmpresa = new Map<string, Adelanto[]>();
-  for (const a of pagados) {
+  const adelantoById = new Map(adelantos.map((a) => [a.id, a]));
+
+  for (const a of adelantos) {
+    if (!adelantoDebeCobrarseEnPeriodo(a, periodo, cuentasCobro)) continue;
     const list = porEmpresa.get(a.empresaId) ?? [];
     list.push(a);
     porEmpresa.set(a.empresaId, list);
+  }
+
+  // Mantener filas de periodos con cuenta ya emitida o verificada (total $0).
+  for (const cuenta of cuentasCobro.filter((c) => c.periodo === periodo)) {
+    if (porEmpresa.has(cuenta.empresaId)) continue;
+    const lista = cuenta.adelantoIds
+      .map((id) => adelantoById.get(id))
+      .filter((a): a is Adelanto => a != null && a.estado === "pagado");
+    if (lista.length) porEmpresa.set(cuenta.empresaId, lista);
   }
 
   const cuentasPorKey = new Map(
@@ -112,8 +115,14 @@ export function buildResumenesCobroEmpresa(
   const resumenes: ResumenCobroEmpresa[] = [];
 
   for (const [empresaId, lista] of porEmpresa) {
-    const montos = calcularMontosCobro(lista, valorComision);
     const key = `${empresaId}:${periodo}`;
+    const cuenta = cuentasPorKey.get(key);
+    const montosHistoricos = calcularMontosCobro(lista, valorComision);
+    const montosPendientes = calcularMontosCobro(lista, valorComision, cuentasCobro);
+    const montos =
+      cuenta?.estado === "verificada"
+        ? { ...montosHistoricos, montoTotalCobrar: 0 }
+        : montosPendientes;
     resumenes.push({
       key,
       empresaId,
@@ -121,7 +130,7 @@ export function buildResumenesCobroEmpresa(
       empresa: empresas.find((e) => e.id === empresaId),
       adelantosPagados: lista,
       cantidadAdelantos: lista.length,
-      cuentaCobro: cuentasPorKey.get(key),
+      cuentaCobro: cuenta,
       ...montos,
     });
   }
@@ -130,12 +139,7 @@ export function buildResumenesCobroEmpresa(
 }
 
 export function listarPeriodosConPagos(adelantos: Adelanto[]): string[] {
-  const set = new Set<string>();
-  for (const a of adelantos) {
-    if (a.estado !== "pagado") continue;
-    set.add(periodoFromDate(a.fechaPago ?? a.fechaSolicitud));
-  }
-  return Array.from(set).sort((a, b) => b.localeCompare(a));
+  return listarPeriodosCobro(adelantos);
 }
 
 export type TarjetaCobroEmpresa = {

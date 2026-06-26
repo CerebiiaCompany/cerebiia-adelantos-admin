@@ -267,7 +267,9 @@
   }
 
   .admin-table-scroll {
-    @apply overflow-x-auto overscroll-x-contain;
+    @apply overflow-x-auto overscroll-x-contain max-w-full min-w-0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
   }
 
   .admin-chart-card [data-chart] {

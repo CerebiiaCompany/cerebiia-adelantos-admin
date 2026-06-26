@@ -39,8 +39,9 @@ import {
 import {
   buildFilasDetalleCuotas,
   buildResumenSaldosEmpresa,
-  contarCuotasFuturas,
+  sumarCuotasNominaInformadas,
   formatPeriodoDescuento,
+  formatFechaSolicitud,
   type FilaDetalleCuota,
 } from "@/lib/cuotas-adelanto";
 import { cn } from "@/lib/utils";
@@ -122,7 +123,7 @@ function ControlPagosPage() {
       <AdminPageHeader
         eyebrow="Finanzas"
         title="Control de pagos"
-        subtitle="Gestiona las cuentas de cobro a empresas por adelantos pagados a empleados. La empresa adjunta evidencia desde su panel; aquí verificas el pago para activar cuotas y saldos."
+        subtitle="Gestiona las cuentas de cobro a empresas. Cobro único por adelanto; al verificar, la deuda queda en $0 y las cuotas son solo para descuento en nómina."
       />
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -146,7 +147,7 @@ function ControlPagosPage() {
           icon={CheckCircle2}
           iconTone="success"
           value={String(stats.verificadas)}
-          sub="cuotas activadas"
+          sub="cobro saldado con empresa"
         />
         <AdminMetricCard
           label="Comisión aplicada"
@@ -175,8 +176,8 @@ function ControlPagosPage() {
             </Select>
           </div>
           <p className="text-sm text-muted-foreground">
-            Solo incluye adelantos en estado <span className="font-medium text-success">Pagado</span> del
-            periodo seleccionado.
+            Incluye adelantos pagados al empleado en este periodo. La empresa paga el monto completo
+            una sola vez; las cuotas del detalle son solo para que descuente en nómina.
           </p>
         </div>
       </div>
@@ -192,7 +193,7 @@ function ControlPagosPage() {
           <div>
             <h2 className="admin-section-title">Cobro por empresa</h2>
             <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
-              Monto pagado a empleados + comisión = total a cobrar a la empresa.
+              Total a cobrar = adelanto completo + comisión. Verificada = deuda $0 (la empresa ya pagó).
             </p>
           </div>
           <span className="text-sm text-muted-foreground tabular">{resumenesConCuenta.length} registros</span>
@@ -434,9 +435,25 @@ function DetalleCobroDialog({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total a cobrar</p>
-                <p className="font-semibold tabular text-primary mt-0.5">
-                  {formatCOP(resumen.montoTotalCobrar)}
+                <p
+                  className={cn(
+                    "font-semibold tabular mt-0.5",
+                    resumen.cuentaCobro?.estado === "verificada"
+                      ? "text-success"
+                      : "text-primary",
+                  )}
+                >
+                  {formatCOP(
+                    resumen.cuentaCobro?.estado === "verificada"
+                      ? 0
+                      : resumen.montoTotalCobrar,
+                  )}
                 </p>
+                {resumen.cuentaCobro?.estado === "evidencia_enviada" && (
+                  <p className="text-[10px] text-warning mt-0.5">
+                    Evidencia recibida — verifica el pago para saldar la cuenta
+                  </p>
+                )}
               </div>
             </div>
 
@@ -451,8 +468,10 @@ function DetalleCobroDialog({
                     <div className="min-w-0">
                       <p className="font-medium truncate">{a.empleadoNombre}</p>
                       <p className="text-xs text-muted-foreground">
-                        {a.numeroCuotas} cuotas
-                        {a.cuotasActivadas ? " · activas" : " · pendientes de verificación"}
+                        {a.numeroCuotas} cuota(s) en nómina
+                        {resumen.cuentaCobro?.estado === "verificada"
+                          ? " · cobro saldado"
+                          : " · pendiente de cobro a empresa"}
                       </p>
                     </div>
                     <span className="tabular font-medium shrink-0">{formatCOP(a.monto)}</span>
@@ -668,12 +687,8 @@ function EstadoCuotaBadge({ estado }: { estado: FilaDetalleCuota["estado"] }) {
       label: "A informar",
       className: "bg-info/15 text-info border-info/30",
     },
-    pendiente: {
-      label: "Pendiente",
-      className: "bg-warning/15 text-warning border-warning/30",
-    },
-    descontada: {
-      label: "Descontada",
+    cobro_saldado: {
+      label: "Cobro saldado",
       className: "bg-success/15 text-success border-success/30",
     },
   }[estado];
@@ -727,42 +742,43 @@ function DetalleCuotasDialog({
   );
 
   const cuotasEnEstaCuenta = filas.length;
-  const cuotasFuturas = useMemo(
+  const cuotasNomina = useMemo(
     () =>
       resumenActualizado
-        ? contarCuotasFuturas(resumenActualizado.adelantosPagados, valorComision)
+        ? sumarCuotasNominaInformadas(resumenActualizado.adelantosPagados, valorComision)
         : 0,
     [resumenActualizado, valorComision],
   );
 
   return (
     <Dialog open={!!resumen} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-4xl max-h-[min(90dvh,calc(100vh-1.5rem))] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex w-[calc(100%-1.5rem)] max-h-[min(90dvh,calc(100vh-1.5rem))] flex-col gap-0 overflow-hidden p-4 sm:max-w-4xl sm:p-6 min-w-0">
+        <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>Detalle de cuotas y saldos</DialogTitle>
           <DialogDescription>
-            {resumen?.empresa?.nombre} · {resumen && periodoLabel(resumen.periodo)} — cuotas que
-            informa esta cuenta de cobro y saldo disponible por empleado.
+            {resumen?.empresa?.nombre} · {resumen && periodoLabel(resumen.periodo)} — datos para que
+            la empresa descuente en nómina y saldo disponible por empleado.
           </DialogDescription>
         </DialogHeader>
 
         {resumen && (
-          <div className="space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pr-1 -mr-1">
             <p className="text-xs text-muted-foreground rounded-lg border border-border bg-surface/50 px-3 py-2.5">
-              Al enviar y verificar la cuenta de cobro se descuenta la primera cuota de cada adelanto
-              en nómina. Las cuotas restantes se informarán y cobrarán en los meses siguientes.
+              La empresa paga el <strong>adelanto completo</strong> en una sola cuenta. El saldo solo
+              pasa a <strong>$0</strong> cuando el super admin <strong>verifica la evidencia de pago</strong>.
+              Hasta entonces el total a cobrar se mantiene pendiente.
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-border bg-surface/60 p-3">
-                <p className="text-xs text-muted-foreground">Cuotas en esta cuenta</p>
+                <p className="text-xs text-muted-foreground">Adelantos</p>
                 <p className="text-lg font-bold tabular text-primary mt-0.5">{cuotasEnEstaCuenta}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">informadas en el detalle</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">en esta cuenta</p>
               </div>
               <div className="rounded-lg border border-border bg-surface/60 p-3">
-                <p className="text-xs text-muted-foreground">Cuotas futuras</p>
-                <p className="text-lg font-bold tabular text-warning mt-0.5">{cuotasFuturas}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">meses siguientes</p>
+                <p className="text-xs text-muted-foreground">Cuotas en nómina</p>
+                <p className="text-lg font-bold tabular text-warning mt-0.5">{cuotasNomina}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">meses a descontar (total)</p>
               </div>
               <div className="rounded-lg border border-border bg-surface/60 p-3 col-span-2">
                 <p className="text-xs text-muted-foreground">Estado cuenta de cobro</p>
@@ -774,65 +790,66 @@ function DetalleCuotasDialog({
               </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-semibold mb-1">Cuotas por empleado</h3>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold mb-1">Detalle por empleado</h3>
               <p className="text-xs text-muted-foreground mb-2">
                 Comisión: {formatCOP(Number(valorComision) || 0)} por cuota · se multiplica por el
                 número de cuotas del adelanto.
               </p>
-              <div className="admin-table-scroll rounded-xl border border-border">
-                <table className="admin-table min-w-[52rem]">
+              <p className="text-[10px] text-muted-foreground mb-2 sm:hidden">
+                Desliza horizontalmente para ver todas las columnas.
+              </p>
+              <div className="admin-table-scroll w-full rounded-xl border border-border">
+                <table className="admin-table w-max min-w-full sm:min-w-[52rem]">
                   <thead className="admin-table-head">
                     <tr>
-                      <th className="admin-table-th text-left">Empleado</th>
-                      <th className="admin-table-th text-center">Cuota a pagar</th>
-                      <th className="admin-table-th text-right">Valor solicitado</th>
-                      <th className="admin-table-th text-right">Monto a recibir</th>
-                      <th className="admin-table-th text-right hidden md:table-cell">
-                        Descuento nómina
-                      </th>
-                      <th className="admin-table-th text-center">Estado</th>
-                      <th className="admin-table-th text-left hidden lg:table-cell">Periodo desc.</th>
+                      <th className="admin-table-th text-left whitespace-nowrap">Empleado</th>
+                      <th className="admin-table-th text-left whitespace-nowrap">Fecha solicitud</th>
+                      <th className="admin-table-th text-center whitespace-nowrap">Cuotas</th>
+                      <th className="admin-table-th text-right whitespace-nowrap">Valor solicitado</th>
+                      <th className="admin-table-th text-right whitespace-nowrap">Monto a recibir</th>
+                      <th className="admin-table-th text-right whitespace-nowrap">Descuento nómina</th>
+                      <th className="admin-table-th text-left whitespace-nowrap">Inicio descuento</th>
+                      <th className="admin-table-th text-center whitespace-nowrap">Estado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filas.map((f) => (
                       <tr key={f.adelantoId} className="hover:bg-muted/20 align-top">
-                        <td>
+                        <td className="whitespace-nowrap">
                           <div className="admin-table-cell-title text-sm">{f.empleadoNombre}</div>
                           <div className="admin-table-cell-note tabular">CC {f.empleadoCedula}</div>
-                          {f.totalCuotas > 1 && (
-                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                              {f.totalCuotas} cuotas · comisión total {formatCOP(f.comisionTotal)}
-                            </div>
-                          )}
+                        </td>
+                        <td className="text-sm text-muted-foreground tabular whitespace-nowrap">
+                          {formatFechaSolicitud(f.fechaSolicitud)}
                         </td>
                         <td className="text-center tabular font-semibold whitespace-nowrap">
-                          {f.numeroCuota} / {f.totalCuotas}
+                          {f.totalCuotas}
                         </td>
-                        <td className="text-right admin-table-cell-money tabular">
+                        <td className="text-right admin-table-cell-money tabular whitespace-nowrap">
                           {formatCOP(f.montoSolicitado)}
                         </td>
-                        <td className="text-right admin-table-cell-money tabular text-success font-medium">
+                        <td className="text-right admin-table-cell-money tabular text-success font-medium whitespace-nowrap">
                           {formatCOP(f.montoARecibir)}
                         </td>
-                        <td className="hidden md:table-cell text-right admin-table-cell-money tabular text-muted-foreground">
+                        <td className="text-right admin-table-cell-money tabular text-muted-foreground whitespace-nowrap">
                           {formatCOP(f.valorDescuentoNomina)}
+                          {f.totalCuotas > 1 && (
+                            <span className="text-[10px] font-normal"> / mes</span>
+                          )}
                         </td>
-                        <td className="text-center">
+                        <td className="text-sm text-muted-foreground tabular whitespace-nowrap">
+                          {formatPeriodoDescuento(f.periodoInicioDescuento)}
+                        </td>
+                        <td className="text-center whitespace-nowrap">
                           <EstadoCuotaBadge estado={f.estado} />
-                        </td>
-                        <td className="hidden lg:table-cell text-sm text-muted-foreground tabular">
-                          {f.estado === "descontada"
-                            ? formatPeriodoDescuento(f.periodoDescuento)
-                            : "—"}
                         </td>
                       </tr>
                     ))}
                     {filas.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="admin-table-empty py-6">
-                          No hay cuotas registradas para este periodo.
+                        <td colSpan={8} className="admin-table-empty py-6">
+                          No hay adelantos en esta cuenta de cobro.
                         </td>
                       </tr>
                     )}
@@ -844,7 +861,8 @@ function DetalleCuotasDialog({
             <div>
               <h3 className="text-sm font-semibold mb-2">Saldo disponible por adelanto</h3>
               <p className="text-xs text-muted-foreground mb-3">
-                El saldo disponible es el 30% del salario menos las cuotas aún pendientes de descuento.
+                Referencia para nuevos adelantos: 30% del salario menos lo que la empresa aún debe
+                descontar al empleado en nómina (no es deuda pendiente con la plataforma).
               </p>
               <div className="space-y-2">
                 {saldos.map((s) => (

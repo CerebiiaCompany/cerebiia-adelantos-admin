@@ -286,6 +286,7 @@ function AdelantosPage() {
                     adelanto={a}
                     empresaNombre={e?.nombre}
                     desglose={calcular(a.monto, a.numeroCuotas)}
+                    allowedEstados={["aprobado", "rechazado"]}
                     onEstadoChange={(v) => handleEstadoChange(a, v)}
                     onView={a.estado === "aprobado" ? () => setViewing(a) : undefined}
                     onPay={a.estado === "aprobado" ? () => setPaying(a) : undefined}
@@ -348,6 +349,7 @@ type AdelantoRowProps = {
   queueIndex?: number;
   showQueue?: boolean;
   showFecha?: boolean;
+  allowedEstados?: EstadoAdelanto[];
   onEstadoChange: (estado: EstadoAdelanto) => void;
   onView?: () => void;
   onPay?: () => void;
@@ -400,6 +402,7 @@ function AdelantoRow({
   queueIndex,
   showQueue,
   showFecha,
+  allowedEstados,
   onEstadoChange,
   onView,
   onPay,
@@ -453,7 +456,24 @@ function AdelantoRow({
       <AdelantoCuotasCells desglose={desglose} />
       <td>
         <div className="flex justify-center">
-          <EstadoSelect value={a.estado} onChange={onEstadoChange} />
+          {showQueue ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 gap-1.5 whitespace-nowrap"
+              onClick={() => onEstadoChange("en_revision")}
+              title="Mover la solicitud a revisión"
+            >
+              <Eye className="size-4 shrink-0" />
+              Enviar a revisión
+            </Button>
+          ) : (
+            <EstadoSelect
+              value={a.estado}
+              onChange={onEstadoChange}
+              allowedEstados={allowedEstados}
+            />
+          )}
         </div>
       </td>
       {!showQueue && (
@@ -503,7 +523,16 @@ function EstadoBadge({ estado }: { estado: EstadoAdelanto }) {
   );
 }
 
-function EstadoSelect({ value, onChange }: { value: EstadoAdelanto; onChange: (v: EstadoAdelanto) => void }) {
+function EstadoSelect({
+  value,
+  onChange,
+  allowedEstados,
+}: {
+  value: EstadoAdelanto;
+  onChange: (v: EstadoAdelanto) => void;
+  /** Si se define, solo muestra esos estados en el menú (p. ej. tabla En gestión). */
+  allowedEstados?: EstadoAdelanto[];
+}) {
   if (value === "pagado") {
     return (
       <div className="flex justify-center" title="El estado Pagado no se puede modificar">
@@ -511,6 +540,11 @@ function EstadoSelect({ value, onChange }: { value: EstadoAdelanto; onChange: (v
       </div>
     );
   }
+
+  const opciones = (Object.keys(estadoLabel) as EstadoAdelanto[]).filter((e) => e !== "pagado");
+  const estadosVisibles = allowedEstados
+    ? opciones.filter((e) => allowedEstados.includes(e))
+    : opciones;
 
   return (
     <Select value={value} onValueChange={(v) => onChange(v as EstadoAdelanto)}>
@@ -520,13 +554,11 @@ function EstadoSelect({ value, onChange }: { value: EstadoAdelanto; onChange: (v
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {(Object.keys(estadoLabel) as EstadoAdelanto[])
-          .filter((e) => e !== "pagado")
-          .map((e) => (
-            <SelectItem key={e} value={e}>
-              {estadoLabel[e]}
-            </SelectItem>
-          ))}
+        {estadosVisibles.map((e) => (
+          <SelectItem key={e} value={e}>
+            {estadoLabel[e]}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
