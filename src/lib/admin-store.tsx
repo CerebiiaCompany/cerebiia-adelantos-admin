@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_MAX_CUOTAS, clampNumeroCuotas, inferNumeroCuotas, assignNumeroCuotasDemo } from "@/lib/adelanto-calculo";
 import type { CuentaCobro } from "@/lib/cuenta-cobro";
 import { calcularMontosCobro } from "@/lib/cuenta-cobro";
@@ -347,6 +347,9 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const [cuentasCobro, setCuentasCobro] = useState<CuentaCobro[]>([]);
   const [auditorias, setAuditorias] = useState<RegistroAuditoria[]>([]);
 
+  const storeSnapshotRef = useRef({ empresas, empleados, cuentasCobro });
+  storeSnapshotRef.current = { empresas, empleados, cuentasCobro };
+
   const refreshAuditorias = useCallback(() => {
     setAuditorias(leerAuditorias());
   }, []);
@@ -466,10 +469,14 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const replaceAdelantos: Store["replaceAdelantos"] = (next) => {
-    setAdelantos(next);
-    persist(empresas, next, empleados, cuentasCobro);
-  };
+  const replaceAdelantos = useCallback<Store["replaceAdelantos"]>(
+    (next) => {
+      setAdelantos(next);
+      const { empresas: e, empleados: emp, cuentasCobro: cc } = storeSnapshotRef.current;
+      persist(e, next, emp, cc);
+    },
+    [persist],
+  );
 
   const crearCuentaCobro: Store["crearCuentaCobro"] = (
     empresaId,

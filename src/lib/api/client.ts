@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "./config";
 import { ApiError, parseApiErrorMessage } from "./errors";
+import { scheduleApiRequest } from "./rate-limit";
 import type { RefreshResponse } from "./types";
 import { clearAuthSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth-storage";
 
@@ -84,23 +85,29 @@ export async function apiRequest<T>(
   options: ApiRequestOptions = {},
   isRetry = false,
 ): Promise<T> {
-  try {
-    return await executeRequest<T>(path, options);
-  } catch (error) {
-    if (
-      !isRetry &&
-      options.auth &&
-      error instanceof ApiError &&
-      error.status === 401 &&
-      !NO_REFRESH_PATHS.includes(path)
-    ) {
-      const refreshed = await refreshAccessTokenOnce();
-      if (refreshed) {
-        return apiRequest<T>(path, options, true);
+  const method = options.method ?? "GET";
+
+  const run = async (): Promise<T> => {
+    try {
+      return await executeRequest<T>(path, options);
+    } catch (error) {
+      if (
+        !isRetry &&
+        options.auth &&
+        error instanceof ApiError &&
+        error.status === 401 &&
+        !NO_REFRESH_PATHS.includes(path)
+      ) {
+        const refreshed = await refreshAccessTokenOnce();
+        if (refreshed) {
+          return apiRequest<T>(path, options, true);
+        }
       }
+      throw error;
     }
-    throw error;
-  }
+  };
+
+  return scheduleApiRequest(method, path, run);
 }
 
 function safeJsonParse(text: string): unknown {

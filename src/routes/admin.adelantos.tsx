@@ -72,6 +72,7 @@ function AdelantosPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
+  const loadStartedRef = useRef(false);
 
   const loadSolicitudes = useCallback(async () => {
     setLoadingList(true);
@@ -91,6 +92,8 @@ function AdelantosPage() {
   }, [replaceAdelantos]);
 
   useEffect(() => {
+    if (loadStartedRef.current) return;
+    loadStartedRef.current = true;
     void loadSolicitudes();
   }, [loadSolicitudes]);
 

@@ -57,6 +57,7 @@ export function parseApiErrorMessage(status: number, body: unknown): string {
   if (status === 403) return "No tienes permisos para acceder a este panel";
   if (status === 404) return "El recurso solicitado no existe en el servidor (404).";
   if (status === 422) return "Los datos enviados no son válidos";
+  if (status === 429) return "Demasiadas peticiones. Espera un momento e intenta de nuevo.";
   if (status === 500) {
     return "Error interno del servidor (500). Revisa que el backend esté actualizado y las migraciones aplicadas.";
   }
