@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { getComision, updateComision } from "@/lib/api/comision";
+import { comisionFromConfiguracion, updateComision } from "@/lib/api/comision";
 import {
   getConfiguracion,
   getConfiguracionHistorial,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/api/configuracion";
 import { ApiError } from "@/lib/api/errors";
 import { writeComisionCache, readComisionCache, DEFAULT_COMISION_VALOR } from "@/lib/adelanto-calculo";
-import type { Comision, ConfiguracionGlobal, HistorialConfiguracion } from "@/lib/api/types";
+import type { ConfiguracionGlobal, HistorialConfiguracion } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,18 +20,22 @@ export const Route = createFileRoute("/admin/configuracion")({
   component: ConfiguracionPage,
 });
 
+function tarifaToFormValue(tarifa: string): string {
+  return tarifa.replace(/\.00$/, "") || "0";
+}
+
+function tarifaToApiValue(valor: string): string {
+  return valor.includes(".") ? valor : `${valor}.00`;
+}
+
 function ConfiguracionPage() {
   const [config, setConfig] = useState<ConfiguracionGlobal | null>(null);
-  const [comision, setComision] = useState<Comision | null>(null);
-  const [comisionDisponible, setComisionDisponible] = useState(false);
-  const [comisionPendienteBackend, setComisionPendienteBackend] = useState<string | null>(null);
   const [historial, setHistorial] = useState<HistorialConfiguracion[]>([]);
   const [form, setForm] = useState({
     porcentaje_maximo_adelanto: "",
     numero_maximo_cuotas: "",
     plazo_maximo_dias: "",
   });
-  const [comisionBackendOk, setComisionBackendOk] = useState(false);
   const [comisionForm, setComisionForm] = useState({ valor_comision: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,70 +45,57 @@ function ConfiguracionPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [comisionSuccess, setComisionSuccess] = useState<string | null>(null);
 
+  const applyConfigToForms = useCallback((cfg: ConfiguracionGlobal) => {
+    setConfig(cfg);
+    setForm({
+      porcentaje_maximo_adelanto: cfg.porcentaje_maximo_adelanto,
+      numero_maximo_cuotas: String(cfg.numero_maximo_cuotas),
+      plazo_maximo_dias: String(cfg.plazo_maximo_dias),
+    });
+    const valor = comisionFromConfiguracion(cfg).valor_comision;
+    setComisionForm({ valor_comision: valor });
+    writeComisionCache(valor);
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     setComisionError(null);
-    setComisionPendienteBackend(null);
-    setComisionBackendOk(false);
-    setComisionDisponible(false);
 
-    const cachedValor = readComisionCache() ?? DEFAULT_COMISION_VALOR;
-
-    const results = await Promise.allSettled([
-      getConfiguracion(),
-      getConfiguracionHistorial(),
-      getComision(),
-    ]);
-
-    const [cfgResult, histResult, comisionResult] = results;
+    const results = await Promise.allSettled([getConfiguracion(), getConfiguracionHistorial()]);
+    const [cfgResult, histResult] = results;
 
     if (cfgResult.status === "fulfilled") {
-      setConfig(cfgResult.value);
-      setForm({
-        porcentaje_maximo_adelanto: cfgResult.value.porcentaje_maximo_adelanto,
-        numero_maximo_cuotas: String(cfgResult.value.numero_maximo_cuotas),
-        plazo_maximo_dias: String(cfgResult.value.plazo_maximo_dias),
-      });
+      applyConfigToForms(cfgResult.value);
     } else {
       const err = cfgResult.reason;
-      setError(err instanceof ApiError ? err.message : "No se pudo cargar la configuración de adelantos.");
+      if (err instanceof ApiError && err.status === 500) {
+        setError(
+          "El servidor no pudo cargar la configuración (error 500). Suele deberse a que falta aplicar la migración de base de datos `0002_tarifa_fija_por_cuota`. En el backend ejecuta: python src/manage.py migrate",
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : "No se pudo cargar la configuración de adelantos.");
+      }
+      setComisionForm({ valor_comision: readComisionCache() ?? DEFAULT_COMISION_VALOR });
     }
 
     if (histResult.status === "fulfilled") {
       setHistorial(histResult.value);
     }
 
-    if (comisionResult.status === "fulfilled") {
-      setComisionBackendOk(true);
-      setComisionDisponible(true);
-      setComision(comisionResult.value);
-      setComisionForm({ valor_comision: comisionResult.value.valor_comision });
-      writeComisionCache(comisionResult.value.valor_comision);
-    } else {
-      setComisionDisponible(true);
-      setComisionForm({ valor_comision: cachedValor });
-      const err = comisionResult.reason;
-      if (err instanceof ApiError && err.status === 404) {
-        setComisionPendienteBackend(
-          "El backend aún no expone GET /api/v1/comision/. Puedes configurar la comisión localmente; se aplicará en cálculos hasta que el backend esté disponible.",
-        );
-      } else {
-        setComisionError(
-          err instanceof ApiError ? err.message : "No se pudo cargar la comisión desde el servidor.",
-        );
-        setComisionPendienteBackend(
-          "Usando valor guardado localmente. Al reconectar con el backend podrás sincronizar.",
-        );
-      }
-    }
-
     setLoading(false);
-  }, []);
+  }, [applyConfigToForms]);
 
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  const buildPayload = () => ({
+    porcentaje_maximo_adelanto: form.porcentaje_maximo_adelanto,
+    numero_maximo_cuotas: Number(form.numero_maximo_cuotas),
+    plazo_maximo_dias: Number(form.plazo_maximo_dias),
+    tarifa_fija_por_cuota: tarifaToApiValue(comisionForm.valor_comision || "0"),
+  });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,12 +104,8 @@ function ConfiguracionPage() {
     setSuccess(null);
 
     try {
-      const updated = await updateConfiguracion({
-        porcentaje_maximo_adelanto: form.porcentaje_maximo_adelanto,
-        numero_maximo_cuotas: Number(form.numero_maximo_cuotas),
-        plazo_maximo_dias: Number(form.plazo_maximo_dias),
-      });
-      setConfig(updated);
+      const updated = await updateConfiguracion(buildPayload());
+      applyConfigToForms(updated);
       const hist = await getConfiguracionHistorial();
       setHistorial(hist);
       setSuccess("Configuración guardada correctamente.");
@@ -131,8 +118,6 @@ function ConfiguracionPage() {
 
   const submitComision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!comisionDisponible) return;
-
     setSavingComision(true);
     setComisionError(null);
     setComisionSuccess(null);
@@ -145,23 +130,25 @@ function ConfiguracionPage() {
     }
 
     writeComisionCache(valor);
-    setComisionForm({ valor_comision: valor });
 
-    if (!comisionBackendOk) {
+    if (!config) {
       setComisionSuccess("Comisión guardada localmente. Se aplicará en los cálculos del panel.");
       setSavingComision(false);
       return;
     }
 
     try {
-      const updated = await updateComision({ valor_comision: valor });
-      setComision(updated);
-      setComisionForm({ valor_comision: updated.valor_comision });
-      writeComisionCache(updated.valor_comision);
+      const updated = await updateComision({ valor_comision: valor }, config);
+      applyConfigToForms({
+        ...config,
+        tarifa_fija_por_cuota: tarifaToApiValue(updated.valor_comision),
+        updated_at: updated.updated_at,
+      });
+      const hist = await getConfiguracionHistorial();
+      setHistorial(hist);
       setComisionSuccess("Comisión actualizada correctamente.");
     } catch (err) {
-      setComisionSuccess("Comisión guardada localmente. No se pudo sincronizar con el servidor.");
-      setComisionError(err instanceof ApiError ? err.message : "No se pudo guardar la comisión en el servidor.");
+      setComisionError(err instanceof ApiError ? err.message : "No se pudo guardar la comisión.");
     } finally {
       setSavingComision(false);
     }
@@ -172,7 +159,7 @@ function ConfiguracionPage() {
       <AdminPageHeader
         eyebrow="Parámetros"
         title="Configuración de adelantos"
-        subtitle="Límites globales y comisión aplicados a todas las solicitudes."
+        subtitle="Límites globales y tarifa fija por cuota (`tarifa_fija_por_cuota`) desde el backend."
       />
 
       {loading ? (
@@ -254,7 +241,7 @@ function ConfiguracionPage() {
                   </p>
                 )}
 
-                <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+                <Button type="submit" disabled={saving || !config} className="w-full sm:w-auto">
                   {saving ? (
                     <>
                       <Loader2 className="size-4 mr-2 animate-spin" />
@@ -270,22 +257,13 @@ function ConfiguracionPage() {
               </div>
             </form>
 
-            <form
-              onSubmit={submitComision}
-              className={`admin-panel-card h-full flex flex-col space-y-5 ${!comisionDisponible ? "opacity-90" : ""}`}
-            >
+            <form onSubmit={submitComision} className="admin-panel-card h-full flex flex-col space-y-5">
               <div>
-                <h2 className="admin-section-title text-lg">Comisión</h2>
+                <h2 className="admin-section-title text-lg">Comisión por cuota</h2>
                 <p className="admin-section-subtitle text-base mt-1">
-                  Tarifa fija en pesos cobrada por cada cuota del adelanto (se descuenta del monto solicitado).
+                  Tarifa fija en pesos cobrada por cada cuota (campo `tarifa_fija_por_cuota` en configuración).
                 </p>
               </div>
-
-              {comisionPendienteBackend && (
-                <p className="text-sm text-foreground rounded-lg border border-primary/25 bg-primary/[0.06] px-3 py-2.5 leading-relaxed">
-                  {comisionPendienteBackend}
-                </p>
-              )}
 
               {comisionError && (
                 <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
@@ -299,42 +277,39 @@ function ConfiguracionPage() {
               )}
 
               <div className="space-y-1.5 flex-1">
-                <Label htmlFor="comision">Valor comisión (COP)</Label>
+                <Label htmlFor="comision">Tarifa fija por cuota (COP)</Label>
                 <div className="relative max-w-md">
                   <Coins className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   <Input
                     id="comision"
-                    required={comisionDisponible}
-                    disabled={!comisionDisponible}
+                    required
                     type="number"
                     step="1"
                     min="0"
                     inputMode="numeric"
                     className="pl-9"
-                    placeholder="Ej. 5000"
+                    placeholder="Ej. 8000"
                     value={comisionForm.valor_comision}
                     onChange={(e) =>
                       setComisionForm({ valor_comision: e.target.value.replace(/\D/g, "") })
                     }
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Entero en pesos colombianos (≥ 0)</p>
+                <p className="text-xs text-muted-foreground">
+                  Comisión total del adelanto = tarifa × número de cuotas.
+                </p>
               </div>
 
               <div className="mt-auto space-y-4 pt-2">
-                {comision && (
+                {config && (
                   <p className="text-sm text-muted-foreground">
-                    Última actualización:{" "}
-                    {new Date(comision.updated_at).toLocaleString("es-CO", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    Valor en servidor: {tarifaToFormValue(config.tarifa_fija_por_cuota)} COP
                   </p>
                 )}
 
                 <Button
                   type="submit"
-                  disabled={!comisionDisponible || savingComision || comisionForm.valor_comision === ""}
+                  disabled={savingComision || comisionForm.valor_comision === "" || !config}
                   className="w-full sm:w-auto"
                 >
                   {savingComision ? (
@@ -359,42 +334,46 @@ function ConfiguracionPage() {
               <span className="text-sm text-muted-foreground">{historial.length} registros</span>
             </div>
             <div className="admin-table-scroll">
-            <table className="admin-table min-w-[32rem]">
-              <thead className="admin-table-head">
-                <tr>
-                  <th className="admin-table-th text-left">Fecha</th>
-                  <th className="admin-table-th text-right">% adelanto</th>
-                  <th className="admin-table-th text-right">Cuotas</th>
-                  <th className="admin-table-th text-right">Plazo (días)</th>
-                  <th className="admin-table-th text-left hidden md:table-cell">Actualizado por</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {historial.map((row) => (
-                  <tr key={row.id} className="hover:bg-muted/30">
-                    <td className="tabular text-muted-foreground">
-                      {new Date(row.timestamp).toLocaleString("es-CO", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <td className="text-right tabular font-medium">{row.porcentaje_maximo_adelanto}%</td>
-                    <td className="text-right tabular">{row.numero_maximo_cuotas}</td>
-                    <td className="text-right tabular">{row.plazo_maximo_dias}</td>
-                    <td className="hidden md:table-cell admin-table-cell-mono text-xs">
-                      {row.actualizado_por ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-                {historial.length === 0 && (
+              <table className="admin-table min-w-[40rem]">
+                <thead className="admin-table-head">
                   <tr>
-                    <td colSpan={5} className="admin-table-empty">
-                      Aún no hay cambios registrados en el historial.
-                    </td>
+                    <th className="admin-table-th text-left">Fecha</th>
+                    <th className="admin-table-th text-right">% adelanto</th>
+                    <th className="admin-table-th text-right">Cuotas</th>
+                    <th className="admin-table-th text-right">Plazo (días)</th>
+                    <th className="admin-table-th text-right">Tarifa/cuota</th>
+                    <th className="admin-table-th text-left hidden md:table-cell">Actualizado por</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {historial.map((row) => (
+                    <tr key={row.id} className="hover:bg-muted/30">
+                      <td className="tabular text-muted-foreground">
+                        {new Date(row.timestamp).toLocaleString("es-CO", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="text-right tabular font-medium">{row.porcentaje_maximo_adelanto}%</td>
+                      <td className="text-right tabular">{row.numero_maximo_cuotas}</td>
+                      <td className="text-right tabular">{row.plazo_maximo_dias}</td>
+                      <td className="text-right tabular">
+                        {tarifaToFormValue(row.tarifa_fija_por_cuota)} COP
+                      </td>
+                      <td className="hidden md:table-cell admin-table-cell-mono text-xs">
+                        {row.actualizado_por ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {historial.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="admin-table-empty">
+                        Aún no hay cambios registrados en el historial.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </>

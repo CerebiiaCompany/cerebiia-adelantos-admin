@@ -5,6 +5,11 @@ import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
+import { syncAprobarSolicitud, syncPagarCuotasSolicitud } from "@/lib/adelantos-api-sync";
+import { listCuotasSolicitud } from "@/lib/api/adelantos";
+import { ApiError } from "@/lib/api/errors";
+import { isBackendUuid } from "@/lib/api/is-api-id";
+import type { CuotaAdelantoApi } from "@/lib/api/types";
 import type { DesgloseAdelanto } from "@/lib/adelanto-calculo";
 import { esPagoACuotas } from "@/lib/adelanto-calculo";
 import { cn } from "@/lib/utils";
@@ -40,6 +45,7 @@ import {
   ImageIcon,
   X,
   CircleCheck,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/adelantos")({
@@ -56,14 +62,59 @@ function AdelantosPage() {
   const [paying, setPaying] = useState<Adelanto | null>(null);
   const [rejecting, setRejecting] = useState<Adelanto | null>(null);
   const [viewingMotivo, setViewingMotivo] = useState<Adelanto | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
 
-  const handleEstadoChange = (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
+  const handleEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
     if (adelanto.estado === "pagado") return;
     if (nuevoEstado === "rechazado" && adelanto.estado !== "rechazado") {
       setRejecting(adelanto);
       return;
     }
+
+    if (
+      nuevoEstado === "aprobado" &&
+      (adelanto.estado === "solicitado" || adelanto.estado === "en_revision")
+    ) {
+      setApiLoading(true);
+      setApiError(null);
+      try {
+        await syncAprobarSolicitud(adelanto.id);
+      } catch (err) {
+        if (isBackendUuid(adelanto.id)) {
+          setApiError(
+            err instanceof ApiError
+              ? err.message
+              : "No se pudo aprobar la solicitud en el servidor.",
+          );
+          setApiLoading(false);
+          return;
+        }
+      } finally {
+        setApiLoading(false);
+      }
+    }
+
     updateAdelantoEstado(adelanto.id, nuevoEstado);
+  };
+
+  const handleMarcarPagado = async (id: string, comprobanteUrl: string) => {
+    setApiLoading(true);
+    setApiError(null);
+    try {
+      await syncPagarCuotasSolicitud(id);
+    } catch (err) {
+      if (isBackendUuid(id)) {
+        const message =
+          err instanceof ApiError ? err.message : "No se pudieron registrar las cuotas en el servidor.";
+        setApiError(message);
+        setApiLoading(false);
+        throw new Error(message);
+      }
+    } finally {
+      setApiLoading(false);
+    }
+    marcarPagado(id, comprobanteUrl);
   };
 
   const {
@@ -113,6 +164,12 @@ function AdelantosPage() {
         title="Adelantos"
         subtitle="Consulta y gestiona las solicitudes de adelanto realizadas por los empleados."
       />
+
+      {apiError && (
+        <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+          {apiError}
+        </p>
+      )}
 
       <div className="admin-panel-card-flush border border-info/25">
         <div className="admin-card-toolbar bg-info/[0.06]">
@@ -261,7 +318,10 @@ function AdelantosPage() {
         adelanto={paying}
         desglose={paying ? calcular(paying.monto, paying.numeroCuotas) : null}
         onClose={() => setPaying(null)}
-        onPagar={(url) => paying && marcarPagado(paying.id, url)}
+        onPagar={async (url) => {
+          if (paying) await handleMarcarPagado(paying.id, url);
+        }}
+        loading={apiLoading}
       />
       <RechazoDialog
         adelanto={rejecting}
@@ -793,13 +853,43 @@ function PagoDialog({
   desglose,
   onClose,
   onPagar,
+  loading = false,
 }: {
   adelanto: Adelanto | null;
   desglose: DesgloseAdelanto | null;
   onClose: () => void;
-  onPagar: (url: string) => void;
+  onPagar: (url: string) => void | Promise<void>;
+  loading?: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [cuotas, setCuotas] = useState<CuotaAdelantoApi[] | null>(null);
+  const [cuotasError, setCuotasError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!adelanto || !isBackendUuid(adelanto.id)) {
+      setCuotas(null);
+      setCuotasError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCuotas(null);
+    setCuotasError(null);
+
+    void listCuotasSolicitud(adelanto.id)
+      .then((data) => {
+        if (!cancelled) setCuotas(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCuotasError(err instanceof ApiError ? err.message : "No se pudo cargar el cronograma.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adelanto]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -808,12 +898,16 @@ function PagoDialog({
     }
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    onPagar(file.name);
-    setFile(null);
-    onClose();
+    if (!file || loading) return;
+    try {
+      await onPagar(file.name);
+      setFile(null);
+      onClose();
+    } catch {
+      // El error se muestra en la página principal.
+    }
   };
 
   return (
@@ -880,6 +974,36 @@ function PagoDialog({
               )}
             </div>
 
+            {cuotas && cuotas.length > 0 && (
+              <div className="rounded-xl border border-border bg-surface/60 p-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cronograma de cuotas
+                </p>
+                <ul className="space-y-1.5 text-sm">
+                  {cuotas.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5"
+                    >
+                      <span className="tabular font-medium">
+                        Cuota {c.numero} · corte {c.fecha_corte}
+                      </span>
+                      <span className="tabular text-muted-foreground">{formatCOP(Number(c.monto))}</span>
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          c.estado === "pagada" ? "text-success" : "text-warning",
+                        )}
+                      >
+                        {c.estado === "pagada" ? "Pagada" : "Pendiente"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {cuotasError && <p className="text-xs text-muted-foreground">{cuotasError}</p>}
+
             <div className="space-y-2 min-w-0">
               <Label>Comprobante de pago</Label>
               <ComprobanteUploadZone file={file} onFileChange={setFile} />
@@ -903,9 +1027,22 @@ function PagoDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!file} className="w-full sm:w-auto sm:min-w-[9.5rem]">
-                <Upload className="size-4" />
-                Confirmar pago
+              <Button
+                type="submit"
+                disabled={!file || loading}
+                className="w-full sm:w-auto sm:min-w-[9.5rem]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Registrando…
+                  </>
+                ) : (
+                  <>
+                    <Upload className="size-4" />
+                    Confirmar pago
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>

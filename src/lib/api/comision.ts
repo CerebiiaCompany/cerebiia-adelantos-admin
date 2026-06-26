@@ -1,33 +1,41 @@
-import { apiRequest } from "./client";
-import type { Comision, UpdateComisionPayload } from "./types";
+import { getConfiguracion, updateConfiguracion } from "./configuracion";
+import type { Comision, ConfiguracionGlobal, UpdateComisionPayload } from "./types";
 
 /**
- * Contrato esperado del backend:
- * GET  /comision/ → { valor_comision: string, updated_at: string }
- * POST /comision/ → body { valor_comision: string } → mismo response
- *
- * valor_comision: monto fijo en COP (entero) cobrado por cada adelanto procesado.
+ * La comisión vive en configuración global como `tarifa_fija_por_cuota`.
+ * Este módulo mantiene compatibilidad con código que esperaba /comision/.
  */
 
-type ComisionApiResponse = Comision & { porcentaje_comision?: string };
-
-export function normalizeComision(data: ComisionApiResponse): Comision {
+export function comisionFromConfiguracion(config: ConfiguracionGlobal): Comision {
   return {
-    valor_comision: data.valor_comision ?? data.porcentaje_comision ?? "0",
-    updated_at: data.updated_at,
+    valor_comision: config.tarifa_fija_por_cuota.replace(/\.00$/, "") || "0",
+    updated_at: config.updated_at,
   };
 }
 
 export async function getComision() {
-  const data = await apiRequest<ComisionApiResponse>("/comision/", { auth: true });
-  return normalizeComision(data);
+  const config = await getConfiguracion();
+  return comisionFromConfiguracion(config);
 }
 
-export async function updateComision(payload: UpdateComisionPayload) {
-  const data = await apiRequest<ComisionApiResponse>("/comision/", {
-    method: "POST",
-    auth: true,
-    body: JSON.stringify(payload),
+export async function updateComision(
+  payload: UpdateComisionPayload,
+  current?: ConfiguracionGlobal | null,
+) {
+  if (!current) {
+    current = await getConfiguracion();
+  }
+
+  const tarifa = payload.valor_comision.includes(".")
+    ? payload.valor_comision
+    : `${payload.valor_comision}.00`;
+
+  const updated = await updateConfiguracion({
+    porcentaje_maximo_adelanto: current.porcentaje_maximo_adelanto,
+    numero_maximo_cuotas: current.numero_maximo_cuotas,
+    plazo_maximo_dias: current.plazo_maximo_dias,
+    tarifa_fija_por_cuota: tarifa,
   });
-  return normalizeComision(data);
+
+  return comisionFromConfiguracion(updated);
 }

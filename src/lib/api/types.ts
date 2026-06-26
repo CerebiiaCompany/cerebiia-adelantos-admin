@@ -57,6 +57,7 @@ export interface ConfiguracionGlobal {
   porcentaje_maximo_adelanto: string;
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
+  tarifa_fija_por_cuota: string;
   updated_at: string;
 }
 
@@ -64,6 +65,7 @@ export interface UpdateConfiguracionPayload {
   porcentaje_maximo_adelanto: string;
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
+  tarifa_fija_por_cuota: string;
 }
 
 export interface HistorialConfiguracion {
@@ -71,8 +73,40 @@ export interface HistorialConfiguracion {
   porcentaje_maximo_adelanto: string;
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
+  tarifa_fija_por_cuota: string;
   actualizado_por: string | null;
   timestamp: string;
+}
+
+export type EstadoSolicitudApi =
+  | "solicitado"
+  | "en_revision"
+  | "aprobado"
+  | "rechazado"
+  | "pagado";
+
+export type EstadoCuotaApi = "pendiente" | "pagada";
+
+export interface SolicitudAdelantoApi {
+  id: string;
+  empleado_id: string;
+  empresa_id: string;
+  monto: string;
+  monto_neto: string;
+  numero_cuotas_snapshot: number;
+  plazo_dias_snapshot: number;
+  estado: EstadoSolicitudApi;
+  created_at: string;
+}
+
+export interface CuotaAdelantoApi {
+  id: string;
+  solicitud_id: string;
+  numero: number;
+  monto: string;
+  fecha_corte: string;
+  estado: EstadoCuotaApi;
+  fecha_pago: string | null;
 }
 
 export interface Comision {
