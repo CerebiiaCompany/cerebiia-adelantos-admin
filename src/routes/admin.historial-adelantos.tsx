@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { useAdmin, formatCOP } from "@/lib/admin-store";
+import { useEffect, useMemo, useState } from "react";
+import { formatCOP } from "@/lib/admin-store";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
+import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
+import { buildSolicitudesApiParams, empresasFromAdelantos } from "@/lib/solicitudes-filter-params";
+import type { ListSolicitudesAdminParams } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
   AdelantosFiltersPanel,
   AdelantosStat,
 } from "@/components/admin/adelantos-filters-panel";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/historial-adelantos")({
   head: () => ({ meta: [{ title: "Historial de adelantos — Panel" }] }),
@@ -16,9 +20,13 @@ export const Route = createFileRoute("/admin/historial-adelantos")({
 });
 
 function HistorialAdelantosPage() {
-  const { empresas, adelantos } = useAdmin();
   const { calcular } = useAdelantoParametros();
   const [exporting, setExporting] = useState(false);
+  const [apiParams, setApiParams] = useState<ListSolicitudesAdminParams | undefined>(undefined);
+
+  const { adelantos, loading } = useSolicitudesAdmin(apiParams);
+  const empresas = useMemo(() => empresasFromAdelantos(adelantos), [adelantos]);
+
   const {
     months,
     mes,
@@ -31,7 +39,16 @@ function HistorialAdelantosPage() {
     totals,
     clearFilters,
     hasActiveFilters,
-  } = useAdelantosFilters(adelantos, empresas);
+  } = useAdelantosFilters(adelantos, empresas, { serverFiltered: true });
+
+  useEffect(() => {
+    setApiParams(
+      buildSolicitudesApiParams({
+        mes,
+        estado: estado !== "all" ? estado : undefined,
+      }),
+    );
+  }, [mes, estado]);
 
   const handleExportExcel = () => {
     if (!filtered.length) return;
@@ -50,6 +67,13 @@ function HistorialAdelantosPage() {
         title="Historial de adelantos"
         subtitle="Filtra por mes y empresa, consulta totales y estados de las solicitudes."
       />
+
+      {loading && (
+        <p className="text-sm text-muted-foreground flex items-center gap-2 mb-4">
+          <Loader2 className="size-4 animate-spin" />
+          Cargando solicitudes…
+        </p>
+      )}
 
       <AdelantosFiltersPanel
         months={months}

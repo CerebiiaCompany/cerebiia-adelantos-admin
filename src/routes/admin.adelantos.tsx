@@ -5,22 +5,26 @@ import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
+import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
+import { buildSolicitudesApiParams, empresasFromAdelantos } from "@/lib/solicitudes-filter-params";
 import {
-  fetchAdelantosFromApi,
+  fetchCuotasSolicitud,
   syncAprobarSolicitud,
   syncMarcarEnRevision,
+  syncPagarCuota,
   syncRechazarSolicitud,
   syncSubirComprobante,
 } from "@/lib/adelantos-api-sync";
-import { listCuotasSolicitud } from "@/lib/api/adelantos";
 import { ApiError } from "@/lib/api/errors";
 import { isBackendUuid } from "@/lib/api/is-api-id";
 import type { CuotaAdelantoApi } from "@/lib/api/types";
+import type { ListSolicitudesAdminParams } from "@/lib/api/types";
 import type { DesgloseAdelanto } from "@/lib/adelanto-calculo";
 import { esPagoACuotas } from "@/lib/adelanto-calculo";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdelantosFiltersPanel } from "@/components/admin/adelantos-filters-panel";
+import { SolicitudDetalleDrawer } from "@/components/admin/solicitud-detalle-drawer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,40 +66,57 @@ export const Route = createFileRoute("/admin/adelantos")({
 const ESTADO_COLORS = ESTADO_BADGE_CLASSES;
 
 function AdelantosPage() {
-  const { empresas, adelantos, updateAdelantoEstado, rechazarAdelanto, marcarPagado, replaceAdelantos } =
-    useAdmin();
+  const { updateAdelantoEstado, rechazarAdelanto, marcarPagado } = useAdmin();
   const { calcular } = useAdelantoParametros();
   const [viewing, setViewing] = useState<Adelanto | null>(null);
+  const [detalleId, setDetalleId] = useState<string | null>(null);
   const [paying, setPaying] = useState<Adelanto | null>(null);
   const [rejecting, setRejecting] = useState<Adelanto | null>(null);
   const [viewingMotivo, setViewingMotivo] = useState<Adelanto | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
-  const [loadingList, setLoadingList] = useState(true);
-  const loadStartedRef = useRef(false);
+  const [apiParams, setApiParams] = useState<ListSolicitudesAdminParams | undefined>(undefined);
 
-  const loadSolicitudes = useCallback(async () => {
-    setLoadingList(true);
-    setApiError(null);
-    try {
-      const fromApi = await fetchAdelantosFromApi();
-      replaceAdelantos(fromApi);
-    } catch (err) {
-      setApiError(
-        err instanceof ApiError
-          ? err.message
-          : "No se pudieron cargar las solicitudes desde el servidor.",
-      );
-    } finally {
-      setLoadingList(false);
-    }
-  }, [replaceAdelantos]);
+  const { adelantos, loading: loadingList, error: loadError, reload } = useSolicitudesAdmin(apiParams);
+  const empresas = useMemo(() => empresasFromAdelantos(adelantos), [adelantos]);
+
+  const filters = useAdelantosFilters(adelantos, empresas, {
+    defaultEstados: ["en_revision", "aprobado"],
+    sortOrder: "asc",
+    serverFiltered: true,
+  });
+
+  const {
+    months,
+    mes,
+    setMes,
+    fechaDesde,
+    setFechaDesde,
+    fechaHasta,
+    setFechaHasta,
+    empresaId,
+    setEmpresaId,
+    estado,
+    setEstado,
+    filtered,
+    clearFilters,
+    hasActiveFilters,
+  } = filters;
 
   useEffect(() => {
-    if (loadStartedRef.current) return;
-    loadStartedRef.current = true;
-    void loadSolicitudes();
-  }, [loadSolicitudes]);
+    setApiParams(
+      buildSolicitudesApiParams({
+        mes,
+        fechaDesde,
+        fechaHasta,
+        estado: estado !== "all" ? estado : undefined,
+      }),
+    );
+  }, [mes, fechaDesde, fechaHasta, estado]);
+
+  useEffect(() => {
+    if (loadError) setApiError(loadError);
+  }, [loadError]);
 
   const handleEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
     if (adelanto.estado === "pagado") return;
@@ -126,7 +147,7 @@ function AdelantosPage() {
 
     if (
       nuevoEstado === "aprobado" &&
-      (adelanto.estado === "solicitado" || adelanto.estado === "en_revision")
+      adelanto.estado === "en_revision"
     ) {
       setApiLoading(true);
       setApiError(null);
@@ -148,6 +169,7 @@ function AdelantosPage() {
     }
 
     updateAdelantoEstado(adelanto.id, nuevoEstado);
+    if (isBackendUuid(adelanto.id)) void reload();
   };
 
   const handleMarcarPagado = async (id: string, file: File) => {
@@ -156,6 +178,7 @@ function AdelantosPage() {
     try {
       const comprobanteUrl = await syncSubirComprobante(id, file);
       marcarPagado(id, comprobanteUrl ?? file.name);
+      void reload();
     } catch (err) {
       if (isBackendUuid(id)) {
         const message =
@@ -180,6 +203,7 @@ function AdelantosPage() {
       await syncRechazarSolicitud(rejecting.id, motivo);
       rechazarAdelanto(rejecting.id, motivo);
       setRejecting(null);
+      void reload();
     } catch (err) {
       if (isBackendUuid(rejecting.id)) {
         setApiError(
@@ -193,26 +217,6 @@ function AdelantosPage() {
       setApiLoading(false);
     }
   };
-
-  const {
-    months,
-    mes,
-    setMes,
-    fechaDesde,
-    setFechaDesde,
-    fechaHasta,
-    setFechaHasta,
-    empresaId,
-    setEmpresaId,
-    estado,
-    setEstado,
-    filtered,
-    clearFilters,
-    hasActiveFilters,
-  } = useAdelantosFilters(adelantos, empresas, {
-    defaultEstados: ["en_revision", "aprobado"],
-    sortOrder: "asc",
-  });
 
   const [exporting, setExporting] = useState(false);
 
@@ -246,7 +250,7 @@ function AdelantosPage() {
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 space-y-2">
           <p className="text-sm text-destructive">{apiError}</p>
           <p className="text-xs text-muted-foreground">
-            Se muestran datos locales de demostración hasta que el servidor responda correctamente.
+            Revisa la conexión con el servidor o intenta de nuevo.
           </p>
           <Button
             type="button"
@@ -254,7 +258,7 @@ function AdelantosPage() {
             variant="outline"
             className="h-8"
             disabled={loadingList}
-            onClick={() => void loadSolicitudes()}
+            onClick={() => void reload()}
           >
             {loadingList ? (
               <>
@@ -319,6 +323,7 @@ function AdelantosPage() {
                     showQueue
                     showFecha
                     desglose={calcular(a.monto, a.numeroCuotas)}
+                    onViewDetalle={() => setDetalleId(a.id)}
                     onEstadoChange={(v) => handleEstadoChange(a, v)}
                   />
                 );
@@ -396,6 +401,7 @@ function AdelantosPage() {
                     onEstadoChange={(v) => handleEstadoChange(a, v)}
                     onView={a.estado === "aprobado" ? () => setViewing(a) : undefined}
                     onPay={a.estado === "aprobado" ? () => setPaying(a) : undefined}
+                    onViewDetalle={() => setDetalleId(a.id)}
                     onViewMotivo={a.estado === "rechazado" ? () => setViewingMotivo(a) : undefined}
                   />
                 );
@@ -416,6 +422,7 @@ function AdelantosPage() {
         </div>
       </div>
 
+      <SolicitudDetalleDrawer solicitudId={detalleId} onClose={() => setDetalleId(null)} />
       <CuentaDialog
         adelanto={viewing}
         empresa={viewing ? empresas.find((x) => x.id === viewing.empresaId)?.nombre : undefined}
@@ -457,6 +464,7 @@ type AdelantoRowProps = {
   onEstadoChange: (estado: EstadoAdelanto) => void;
   onView?: () => void;
   onPay?: () => void;
+  onViewDetalle?: () => void;
   onViewMotivo?: () => void;
 };
 
@@ -510,6 +518,7 @@ function AdelantoRow({
   onEstadoChange,
   onView,
   onPay,
+  onViewDetalle,
   onViewMotivo,
 }: AdelantoRowProps) {
   return (
@@ -583,6 +592,17 @@ function AdelantoRow({
       {!showQueue && (
         <td>
           <div className="flex justify-end gap-1.5">
+            {onViewDetalle && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-10"
+                onClick={onViewDetalle}
+                title="Ver detalle"
+              >
+                <FileText className="size-5" />
+              </Button>
+            )}
             {a.estado === "aprobado" && onView && onPay && (
               <>
                 <Button size="icon" variant="ghost" className="size-10" onClick={onView} title="Ver cuenta">
@@ -718,7 +738,10 @@ function CuentaDialog({
             <CopyRow label="Banco" value={adelanto.cuenta.banco} />
             <CopyRow label="Tipo de cuenta" value={adelanto.cuenta.tipo} />
             <CopyRow label="Número de cuenta" value={adelanto.cuenta.numero} />
-            <CopyRow label="Monto a transferir" value={formatCOP(adelanto.monto)} />
+            <CopyRow
+              label="Monto a transferir"
+              value={formatCOP(adelanto.montoNeto ?? adelanto.monto)}
+            />
           </div>
         )}
       </DialogContent>
@@ -1009,6 +1032,16 @@ function PagoDialog({
   const [file, setFile] = useState<File | null>(null);
   const [cuotas, setCuotas] = useState<CuotaAdelantoApi[] | null>(null);
   const [cuotasError, setCuotasError] = useState<string | null>(null);
+  const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
+
+  const reloadCuotas = useCallback(async () => {
+    if (!adelanto || !isBackendUuid(adelanto.id)) {
+      setCuotas(null);
+      return;
+    }
+    const data = await fetchCuotasSolicitud(adelanto.id);
+    setCuotas(data);
+  }, [adelanto]);
 
   useEffect(() => {
     if (!adelanto || !isBackendUuid(adelanto.id)) {
@@ -1021,7 +1054,7 @@ function PagoDialog({
     setCuotas(null);
     setCuotasError(null);
 
-    void listCuotasSolicitud(adelanto.id)
+    void fetchCuotasSolicitud(adelanto.id)
       .then((data) => {
         if (!cancelled) setCuotas(data);
       })
@@ -1035,6 +1068,19 @@ function PagoDialog({
       cancelled = true;
     };
   }, [adelanto]);
+
+  const handlePagarCuota = async (cuotaId: string) => {
+    setPayingCuotaId(cuotaId);
+    setCuotasError(null);
+    try {
+      await syncPagarCuota(cuotaId);
+      await reloadCuotas();
+    } catch (err) {
+      setCuotasError(err instanceof ApiError ? err.message : "No se pudo marcar la cuota como pagada.");
+    } finally {
+      setPayingCuotaId(null);
+    }
+  };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -1134,14 +1180,24 @@ function PagoDialog({
                         Cuota {c.numero} · corte {c.fecha_corte}
                       </span>
                       <span className="tabular text-muted-foreground">{formatCOP(Number(c.monto))}</span>
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          c.estado === "pagada" ? "text-success" : "text-warning",
-                        )}
-                      >
-                        {c.estado === "pagada" ? "Pagada" : "Pendiente"}
-                      </span>
+                      {c.estado === "pagada" ? (
+                        <span className="text-xs font-medium text-success">Pagada</span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={payingCuotaId === c.id}
+                          onClick={() => void handlePagarCuota(c.id)}
+                        >
+                          {payingCuotaId === c.id ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            "Marcar pagada"
+                          )}
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>

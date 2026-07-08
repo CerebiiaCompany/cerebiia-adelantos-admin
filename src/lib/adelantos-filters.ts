@@ -6,6 +6,8 @@ export type AdelantosFiltersOptions = {
   defaultEstados?: EstadoAdelanto[];
   /** Orden por fecha de solicitud. */
   sortOrder?: "asc" | "desc";
+  /** Mes, rango de fechas y estado ya aplicados por el API. */
+  serverFiltered?: boolean;
 };
 
 export function monthKey(d: string) {
@@ -36,7 +38,7 @@ export function useAdelantosFilters(
   empresas: Empresa[],
   options: AdelantosFiltersOptions = {},
 ) {
-  const { defaultEstados, sortOrder = "desc" } = options;
+  const { defaultEstados, sortOrder = "desc", serverFiltered = false } = options;
   const months = useMemo(() => {
     const set = new Set(adelantos.map((a) => monthKey(a.fechaSolicitud)));
     return Array.from(set).sort().reverse();
@@ -50,11 +52,13 @@ export function useAdelantosFilters(
 
   const filtered = useMemo(() => {
     const sorted = adelantos
-      .filter((a) => (mes === "all" ? true : monthKey(a.fechaSolicitud) === mes))
-      .filter((a) => inDateRange(a.fechaSolicitud, fechaDesde, fechaHasta))
+      .filter((a) =>
+        serverFiltered || mes === "all" ? true : monthKey(a.fechaSolicitud) === mes,
+      )
+      .filter((a) => serverFiltered || inDateRange(a.fechaSolicitud, fechaDesde, fechaHasta))
       .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
       .filter((a) => {
-        if (estado !== "all") return a.estado === estado;
+        if (estado !== "all") return serverFiltered ? true : a.estado === estado;
         if (defaultEstados) return defaultEstados.includes(a.estado);
         return true;
       });

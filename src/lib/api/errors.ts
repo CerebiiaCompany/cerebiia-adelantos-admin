@@ -55,6 +55,7 @@ export function parseApiErrorMessage(status: number, body: unknown): string {
 
   if (status === 401) return "Correo o contraseña incorrectos";
   if (status === 403) return "No tienes permisos para acceder a este panel";
+  if (status === 405) return "Esta acción no está disponible en el servidor (método no permitido).";
   if (status === 404) return "El recurso solicitado no existe en el servidor (404).";
   if (status === 422) return "Los datos enviados no son válidos";
   if (status === 429) return "Demasiadas peticiones. Espera un momento e intenta de nuevo.";

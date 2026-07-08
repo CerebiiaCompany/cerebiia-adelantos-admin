@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { EmpresaBarPoint } from "@/lib/dashboard-chart-data";
+import type { MonthlyTrendPoint, EmpresaBarPoint } from "@/lib/dashboard-chart-data";
 import type { Adelanto, Empresa } from "@/lib/admin-store";
 import { formatCOP } from "@/lib/admin-store";
 import {
@@ -84,11 +84,17 @@ type DashboardChartsProps = {
 
 export function DashboardTrendChart({
   adelantos,
+  trendData,
   animationKey = 0,
   className,
-}: Pick<DashboardChartsProps, "adelantos" | "animationKey" | "className">) {
+}: Pick<DashboardChartsProps, "adelantos" | "animationKey" | "className"> & {
+  trendData?: MonthlyTrendPoint[];
+}) {
   const isMobile = useIsMobile();
-  const data = useMemo(() => buildMonthlyTrend(adelantos), [adelantos]);
+  const data = useMemo(
+    () => trendData ?? buildMonthlyTrend(adelantos),
+    [trendData, adelantos],
+  );
   const peak = useMemo(() => Math.max(...data.map((d) => d.total), 1), [data]);
 
   return (
@@ -245,11 +251,17 @@ export function DashboardTrendChart({
 export function DashboardEmpresaChart({
   adelantos,
   empresas,
+  empresaBars,
   animationKey = 0,
   className,
-}: Pick<DashboardChartsProps, "adelantos" | "empresas" | "animationKey" | "className">) {
+}: Pick<DashboardChartsProps, "adelantos" | "empresas" | "animationKey" | "className"> & {
+  empresaBars?: EmpresaBarPoint[];
+}) {
   const isMobile = useIsMobile();
-  const data = useMemo(() => buildEmpresaBars(empresas, adelantos), [empresas, adelantos]);
+  const data = useMemo(
+    () => empresaBars ?? buildEmpresaBars(empresas, adelantos),
+    [empresaBars, empresas, adelantos],
+  );
   const chartHeight = Math.max(220, data.length * 52 + 48);
 
   return (

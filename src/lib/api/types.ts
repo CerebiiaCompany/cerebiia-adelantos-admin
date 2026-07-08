@@ -93,13 +93,63 @@ export interface SolicitudAdelantoApi {
   empresa_id: string;
   monto: string;
   monto_neto: string;
+  monto_a_recibir?: string;
   numero_cuotas_snapshot: number;
   plazo_dias_snapshot: number;
   estado: EstadoSolicitudApi;
   motivo_rechazo?: string | null;
   comprobante_pago?: string | null;
+  comprobante_pago_url?: string | null;
+  pagado_en?: string | null;
+  decidido_por_id?: string | null;
+  decidido_en?: string | null;
+  tarifa_total?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+/** Ítem del listado paginado `GET /adelantos/admin/solicitudes/`. */
+export interface SolicitudAdminListItem {
+  id: string;
+  empleado_id: string;
+  empleado_nombre: string;
+  empleado_documento: string;
+  empresa_id: string;
+  empresa_nombre: string;
+  empresa_nit: string;
+  monto: string;
+  monto_neto: string;
+  tarifa_total: string;
+  numero_cuotas_snapshot: number;
+  estado: EstadoSolicitudApi;
+  decidido_por_id: string | null;
+  decidido_en: string | null;
+  comprobante_pago_url: string | null;
+  pagado_en: string | null;
+  banco_nombre: string | null;
+  tipo_cuenta: string | null;
+  numero_cuenta: string | null;
   created_at: string;
 }
+
+export interface PaginatedResponse<T> {
+  count: number;
+  page: number;
+  page_size: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+export type ListSolicitudesAdminParams = {
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  nombre?: string;
+  documento?: string;
+  estado?: EstadoSolicitudApi;
+  page?: number;
+  page_size?: number;
+};
 
 export interface SolicitudAdminEmpleado {
   id: string;
@@ -136,9 +186,50 @@ export interface CuotaAdelantoApi {
   solicitud_id: string;
   numero: number;
   monto: string;
+  tarifa_cuota?: string;
   fecha_corte: string;
   estado: EstadoCuotaApi;
   fecha_pago: string | null;
+}
+
+export interface SolicitudDetalleResponse {
+  solicitud: SolicitudAdelantoApi;
+  cuotas: CuotaAdelantoApi[];
+}
+
+export interface DashboardAdelantosApi {
+  total_solicitudes: number;
+  conteo_por_estado: Partial<Record<EstadoSolicitudApi, number>>;
+  monto_total_solicitado: string;
+  monto_total_aprobado: string;
+  monto_total_pendiente: string;
+  solicitud_promedio: string;
+  cuotas_mas_frecuente: number;
+  empleados_con_solicitudes: number;
+  empleados_sin_solicitudes: number;
+  empleado_mas_solicitudes: { id: string; nombre: string; total: number } | null;
+  empleado_mayor_monto: { id: string; nombre: string; monto_total: string } | null;
+  solicitudes_por_mes: Array<{ anio: number; mes: number; total: number; monto_total: string }>;
+  monto_solicitado_por_mes: Array<{ anio: number; mes: number; total: number; monto_total: string }>;
+  tasa_aprobacion_por_mes: Array<{
+    anio: number;
+    mes: number;
+    total: number;
+    aprobadas: number;
+    tasa: number;
+  }>;
+}
+
+export interface EmpleadosMetricasApi {
+  total_empleados: number;
+  activos: number;
+  pre_registrados: number;
+  inactivos: number;
+  distribucion_tipo_contrato: Record<string, number>;
+  distribucion_banco: Record<string, number>;
+  distribucion_tipo_cuenta: Record<string, number>;
+  masa_salarial_total: string;
+  salario_promedio: string;
 }
 
 export interface Comision {

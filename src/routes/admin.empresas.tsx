@@ -4,6 +4,8 @@ import { ApiError } from "@/lib/api/errors";
 import { createEmpresa } from "@/lib/api/empresas";
 import { listUsers, deactivateUser } from "@/lib/api/users";
 import { useAdmin, formatCOP, sumarMontoAdelantado } from "@/lib/admin-store";
+import { useEmpleadosMetricas } from "@/hooks/use-empleados-metricas";
+import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
 import {
   loadEmpresasCache,
   mergeEmpresaRows,
@@ -42,7 +44,9 @@ const emptyForm = {
 };
 
 function EmpresasPage() {
-  const { empresas: mockEmpresas, adelantos, empleados } = useAdmin();
+  const { empresas: mockEmpresas, empleados } = useAdmin();
+  const { adelantos: solicitudesApi } = useSolicitudesAdmin();
+  const { data: empleadosMetricas } = useEmpleadosMetricas();
   const [rows, setRows] = useState<EmpresaListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,13 +104,8 @@ function EmpresasPage() {
     }
   };
 
-  const handleToggleActiva = async (row: EmpresaListRow, next: boolean) => {
-    if (next === row.activa) return;
-
-    if (next) {
-      setLoadError("La reactivación de empresas no está disponible desde el panel. Contacta soporte.");
-      return;
-    }
+  const handleDesactivar = async (row: EmpresaListRow) => {
+    if (!row.activa) return;
 
     setTogglingId(row.userId);
     setLoadError(null);
@@ -115,11 +114,13 @@ function EmpresasPage() {
       await deactivateUser(row.userId);
       await loadEmpresas();
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : "No se pudo actualizar el estado.");
+      setLoadError(error instanceof ApiError ? error.message : "No se pudo desactivar la empresa.");
     } finally {
       setTogglingId(null);
     }
   };
+
+  const hayInactivas = useMemo(() => rows.some((r) => !r.activa), [rows]);
 
   const openNomina = (row: EmpresaListRow) => {
     const mock = mockEmpresas.find((e) => e.id === row.empresaId || e.nit === row.nit);
@@ -135,7 +136,11 @@ function EmpresasPage() {
       <AdminPageHeader
         eyebrow="Catálogo"
         title="Empresas"
-        subtitle={`${rows.length} registradas · ${activas} activas`}
+        subtitle={`${rows.length} registradas · ${activas} activas${
+          empleadosMetricas
+            ? ` · ${empleadosMetricas.activos} empleados activos (${empleadosMetricas.total_empleados} total)`
+            : ""
+        }`}
         aside={
           <Dialog
             open={open}
@@ -261,6 +266,14 @@ function EmpresasPage() {
         }
       />
 
+      {hayInactivas && !loadError && (
+        <p className="mb-4 text-sm text-muted-foreground rounded-lg border border-border bg-muted/30 px-4 py-3">
+          Las empresas inactivas no se pueden reactivar desde el panel: el backend solo expone{" "}
+          <code className="text-xs">DELETE /users/{"{id}"}/</code> (desactivar). Hace falta un
+          endpoint de reactivación en el API.
+        </p>
+      )}
+
       {loadError && (
         <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
           {loadError}
@@ -291,8 +304,12 @@ function EmpresasPage() {
             <tbody className="divide-y divide-border">
               {rows.map((row) => {
                 const mock = mockEmpresas.find((e) => e.id === row.empresaId || e.nit === row.nit);
-                const list = mock ? adelantos.filter((a) => a.empresaId === mock.id) : [];
-                const total = mock ? sumarMontoAdelantado(list) : 0;
+                const list = solicitudesApi.filter(
+                  (a) =>
+                    a.empresaId === row.empresaId ||
+                    (row.nit && a.empresaNit === row.nit),
+                );
+                const total = sumarMontoAdelantado(list);
                 const empleadosNomina = mock
                   ? empleados.filter((emp) => emp.empresaId === mock.id).length
                   : null;
@@ -318,9 +335,9 @@ function EmpresasPage() {
                     <td className="text-right tabular text-base">
                       {empleadosNomina ?? "—"}
                     </td>
-                    <td className="text-right tabular text-base">{mock ? list.length : "—"}</td>
+                    <td className="text-right tabular text-base">{list.length || "—"}</td>
                     <td className="text-right admin-table-cell-money">
-                      {mock ? formatCOP(total) : "—"}
+                      {list.length > 0 ? formatCOP(total) : "—"}
                     </td>
                     <td>
                       <div className="flex justify-center">
@@ -347,9 +364,20 @@ function EmpresasPage() {
                         </span>
                         <Switch
                           checked={row.activa}
-                          disabled={togglingId === row.userId}
-                          onCheckedChange={(checked) => void handleToggleActiva(row, checked)}
-                          aria-label={row.activa ? "Desactivar empresa" : "Activar empresa"}
+                          disabled={togglingId === row.userId || !row.activa}
+                          onCheckedChange={(checked) => {
+                            if (!checked) void handleDesactivar(row);
+                          }}
+                          aria-label={
+                            row.activa
+                              ? "Desactivar empresa"
+                              : "Empresa inactiva (reactivación no disponible en el API)"
+                          }
+                          title={
+                            row.activa
+                              ? "Desactivar empresa"
+                              : "Reactivación pendiente de endpoint en el backend"
+                          }
                           className="h-6 w-11 data-[state=checked]:[&>span]:translate-x-5 [&>span]:h-5 [&>span]:w-5"
                         />
                       </div>
@@ -373,7 +401,7 @@ function EmpresasPage() {
       <EmpresaNominaDialog
         empresa={nominaEmpresa}
         empleados={empleados}
-        adelantos={adelantos}
+        adelantos={solicitudesApi}
         onClose={() => setNominaEmpresa(null)}
       />
     </div>

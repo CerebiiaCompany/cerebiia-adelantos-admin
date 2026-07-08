@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { User, UserRole } from "@/lib/api/types";
-import { createUser, deactivateUser, listUsers } from "@/lib/api/users";
+import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, UserX, Eye, EyeOff } from "lucide-react";
+import { Plus, Loader2, UserX, Eye, EyeOff, Info } from "lucide-react";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -48,6 +48,10 @@ function UsuariosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [detailUser, setDetailUser] = useState<User | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const loadUsers = useCallback(async () => {
@@ -109,6 +113,20 @@ function UsuariosPage() {
       setError(err instanceof ApiError ? err.message : "No se pudo desactivar el usuario.");
     } finally {
       setDeactivatingId(null);
+    }
+  };
+
+  const openDetail = async (userId: string) => {
+    setDetailUserId(userId);
+    setDetailUser(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      setDetailUser(await getUser(userId));
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : "No se pudo cargar el detalle del usuario.");
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -286,29 +304,42 @@ function UsuariosPage() {
                     {new Date(user.created_at).toLocaleDateString("es-CO")}
                   </td>
                   <td className="text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10 px-2 sm:px-3"
-                      disabled={!user.is_active || deactivatingId === user.id || user.role === "super_admin"}
-                      onClick={() => void handleDeactivate(user)}
-                      title={
-                        user.role === "super_admin"
-                          ? "No se puede desactivar un super admin"
-                          : "Desactivar usuario"
-                      }
-                      aria-label="Desactivar usuario"
-                    >
-                      {deactivatingId === user.id ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <>
-                          <UserX className="size-4 sm:mr-1.5" />
-                          <span className="hidden sm:inline">Desactivar</span>
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-10"
+                        onClick={() => void openDetail(user.id)}
+                        title="Ver detalle"
+                        aria-label="Ver detalle del usuario"
+                      >
+                        <Info className="size-5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10 px-2 sm:px-3"
+                        disabled={!user.is_active || deactivatingId === user.id || user.role === "super_admin"}
+                        onClick={() => void handleDeactivate(user)}
+                        title={
+                          user.role === "super_admin"
+                            ? "No se puede desactivar un super admin"
+                            : "Desactivar usuario"
+                        }
+                        aria-label="Desactivar usuario"
+                      >
+                        {deactivatingId === user.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <>
+                            <UserX className="size-4 sm:mr-1.5" />
+                            <span className="hidden sm:inline">Desactivar</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -324,6 +355,78 @@ function UsuariosPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={!!detailUserId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailUserId(null);
+            setDetailUser(null);
+            setDetailError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalle de usuario</DialogTitle>
+            <DialogDescription>Información completa desde GET /users/{"{id}"}/</DialogDescription>
+          </DialogHeader>
+          {detailLoading && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="size-4 animate-spin" />
+              Cargando…
+            </p>
+          )}
+          {detailError && (
+            <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+              {detailError}
+            </p>
+          )}
+          {detailUser && !detailLoading && (
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Nombre</dt>
+                <dd className="font-semibold">{detailUser.full_name}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Correo</dt>
+                <dd>{detailUser.email}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Rol</dt>
+                  <dd>
+                    <span
+                      className={`inline-flex items-center text-sm font-medium rounded-md border px-2 py-0.5 ${ROLE_BADGE_CLASSES[detailUser.role]}`}
+                    >
+                      {ROLE_LABELS[detailUser.role]}
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Estado</dt>
+                  <dd className={detailUser.is_active ? "text-success font-medium" : "text-muted-foreground"}>
+                    {detailUser.is_active ? "Activo" : "Inactivo"}
+                  </dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">ID</dt>
+                <dd className="font-mono text-xs break-all">{detailUser.id}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Registro</dt>
+                <dd className="tabular">
+                  {new Date(detailUser.created_at).toLocaleString("es-CO", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </dd>
+              </div>
+            </dl>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
