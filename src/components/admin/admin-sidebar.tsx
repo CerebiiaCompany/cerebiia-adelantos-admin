@@ -1,11 +1,22 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { LogOut } from "lucide-react";
 import { DASHBOARD_REFRESH_EVENT } from "@/hooks/use-dashboard-animation-key";
 import { BRAND_GRADIENT } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 
 export type AdminNavItem = {
   to: string;
@@ -20,29 +31,7 @@ type AdminSidebarProps = {
   onLogout: () => void;
   loggingOut: boolean;
   onNavigate?: () => void;
-  collapsed?: boolean;
 };
-
-function SidebarTooltip({
-  label,
-  collapsed,
-  children,
-}: {
-  label: string;
-  collapsed: boolean;
-  children: ReactNode;
-}) {
-  if (!collapsed) return children;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="right" sideOffset={12} className="text-sm font-medium">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export function AdminSidebar({
   nav,
@@ -50,101 +39,104 @@ export function AdminSidebar({
   onLogout,
   loggingOut,
   onNavigate,
-  collapsed = false,
 }: AdminSidebarProps) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 
-  const navLinkClass = (active: boolean) =>
-    cn(
-      "relative flex items-center rounded-r-xl tracking-tight transition-colors border-l-[3px]",
-      collapsed ? "justify-center px-2 py-3 w-full" : "gap-3 px-3 py-2.5 text-[15px]",
-      active
-        ? "border-primary bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary font-medium",
-    );
-
-  const iconClass = (active: boolean) =>
-    cn("shrink-0 size-5", active && "text-primary");
-
   return (
-    <TooltipProvider delayDuration={0}>
-      <div
-        className={cn(
-          "flex h-full flex-col bg-sidebar border-r border-sidebar-border transition-[width] duration-300 ease-in-out",
-          collapsed ? "w-[var(--sidebar-width-icon)]" : "w-[var(--sidebar-width)]",
-        )}
-      >
-        <div className={cn("pt-6 pb-5", collapsed ? "px-2 flex justify-center" : "px-5")}>
-          <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3.5")}>
-            <div
-              className={cn(
-                "shrink-0 rounded-xl grid place-items-center text-primary-foreground font-bold shadow-sm",
-                collapsed ? "size-10 text-sm" : "size-11 text-base",
-              )}
-              style={{ background: BRAND_GRADIENT }}
-            >
-              A
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <p className="app-sidebar-brand-title text-gradient truncate">AdeCerebiia</p>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground/90 mt-0.5">
-                  Panel Super Admin
-                </p>
-              </div>
-            )}
+    <Sidebar collapsible="icon" className="border-sidebar-border">
+      <SidebarHeader className="app-sidebar-header gap-0 p-0">
+        <div className="app-sidebar-brand-row">
+          <div className="app-sidebar-brand-icon" style={{ background: BRAND_GRADIENT }}>
+            A
+          </div>
+          <div className="min-w-0 flex flex-col justify-center group-data-[collapsible=icon]:hidden">
+            <p className="app-sidebar-brand-title text-gradient truncate">AdeCerebiia</p>
+            <p className="app-sidebar-brand-subtitle mt-0.5">Panel Super Admin</p>
           </div>
         </div>
+      </SidebarHeader>
 
-        <nav className={cn("flex-1 space-y-1.5", collapsed ? "px-1.5" : "px-3")}>
-          {!collapsed && <p className="app-sidebar-section-label px-3 mb-2">Gestión</p>}
-          {nav.map((item) => {
-            const active = isActive(item.to, item.exact);
-            return (
-              <SidebarTooltip key={item.to} label={item.label} collapsed={collapsed}>
-                <Link
-                  to={item.to}
-                  onClick={() => {
-                    if (active && item.to === "/admin") {
-                      window.dispatchEvent(new CustomEvent(DASHBOARD_REFRESH_EVENT));
-                    }
-                    onNavigate?.();
-                  }}
-                  className={navLinkClass(active)}
-                  aria-label={collapsed ? item.label : undefined}
-                >
-                  <item.icon className={iconClass(active)} strokeWidth={active ? 2.35 : 2} />
-                  {!collapsed && item.label}
-                </Link>
-              </SidebarTooltip>
-            );
-          })}
-        </nav>
+      <SidebarContent className="px-4 pt-4 group-data-[collapsible=icon]:px-0">
+        <SidebarGroup className="p-0">
+          <SidebarGroupLabel className="app-sidebar-section-label px-3 mb-1 h-auto group-data-[collapsible=icon]:hidden">
+            Gestión
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:gap-1">
+              {nav.map((item) => {
+                const active = isActive(item.to, item.exact);
+                return (
+                  <SidebarMenuItem key={item.to} className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.label}
+                      className={cn(
+                        "h-auto rounded-r-xl border-l-[3px] tracking-tight transition-colors",
+                        "px-3 py-2.5 text-[15px] gap-3",
+                        "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:border-l-0",
+                        "group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0",
+                        "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
+                        "group-data-[collapsible=icon]:overflow-visible",
+                        active
+                          ? "border-primary bg-sidebar-accent text-sidebar-accent-foreground font-semibold hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:border-transparent"
+                          : "border-transparent text-muted-foreground font-medium hover:text-foreground hover:bg-secondary",
+                      )}
+                    >
+                      <Link
+                        to={item.to}
+                        className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-0"
+                        onClick={() => {
+                          if (active && item.to === "/admin") {
+                            window.dispatchEvent(new CustomEvent(DASHBOARD_REFRESH_EVENT));
+                          }
+                          onNavigate?.();
+                        }}
+                      >
+                        <item.icon
+                          className={cn(
+                            "!size-5 shrink-0 group-data-[collapsible=icon]:!size-5",
+                            active && "text-primary",
+                          )}
+                          strokeWidth={active ? 2.35 : 2}
+                        />
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-        <div className={cn("border-t border-sidebar-border", collapsed ? "p-2" : "p-4")}>
-          <SidebarTooltip
-            label={loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-            collapsed={collapsed}
-          >
-            <button
-              type="button"
+      <SidebarFooter className="border-t border-sidebar-border p-2 group-data-[collapsible=icon]:px-2.5 group-data-[collapsible=icon]:py-2">
+        <SidebarMenu>
+          <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+            <SidebarMenuButton
               onClick={onLogout}
               disabled={loggingOut}
+              tooltip={loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
               className={cn(
-                "flex items-center font-medium tracking-tight text-destructive hover:bg-destructive/10 rounded-xl transition-colors disabled:opacity-60",
-                collapsed
-                  ? "justify-center w-full p-2.5"
-                  : "w-full gap-2.5 px-3 py-2.5 text-[15px]",
+                "h-auto font-medium tracking-tight text-destructive hover:bg-destructive/10 hover:text-destructive",
+                "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:!size-10",
+                "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
+                "group-data-[collapsible=icon]:overflow-visible",
+                "w-full gap-2.5 px-3 py-2.5 text-[15px] rounded-xl",
               )}
-              aria-label="Cerrar sesión"
             >
-              <LogOut className="size-5 shrink-0" strokeWidth={2} />
-              {!collapsed && (loggingOut ? "Cerrando sesión…" : "Cerrar sesión")}
-            </button>
-          </SidebarTooltip>
-        </div>
-      </div>
-    </TooltipProvider>
+              <LogOut className="!size-5 shrink-0" strokeWidth={2} />
+              <span className="group-data-[collapsible=icon]:hidden">
+                {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+
+      <SidebarRail />
+    </Sidebar>
   );
 }

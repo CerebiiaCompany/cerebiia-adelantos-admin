@@ -6,11 +6,18 @@ import { AdminStoreProvider } from "@/lib/admin-store";
 import { AdminBackground } from "@/components/admin/admin-background";
 import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { readSidebarOpenPreference, writeSidebarOpenPreference } from "@/lib/sidebar-preference";
-import { cn } from "@/lib/utils";
-import { Building2, ClipboardList, History, Landmark, LayoutDashboard, Settings, Users, Wallet } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  History,
+  Landmark,
+  LayoutDashboard,
+  Settings,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -32,9 +39,7 @@ function AdminLayout() {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const isMobile = useIsMobile();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
@@ -80,7 +85,7 @@ function AdminLayout() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen grid place-items-center text-sm text-muted-foreground font-sans">
+      <div className="min-h-svh grid place-items-center text-sm text-muted-foreground font-sans">
         Cargando panel…
       </div>
     );
@@ -89,70 +94,34 @@ function AdminLayout() {
   const displayUser = user ?? getStoredUser();
   if (!displayUser) return null;
 
-  const isSidebarVisible = isMobile ? mobileOpen : sidebarOpen;
-
-  const handleToggleSidebar = () => {
-    if (isMobile) {
-      setMobileOpen((prev) => !prev);
-      return;
-    }
-
-    setSidebarOpen((prev) => {
-      const next = !prev;
-      writeSidebarOpenPreference(next);
-      return next;
-    });
-  };
-
   return (
     <AdminStoreProvider>
-      <div className="min-h-screen flex text-foreground font-sans">
-        <aside className="hidden md:flex shrink-0 fixed inset-y-0 left-0 z-40 transition-[width] duration-300 ease-in-out overflow-hidden">
-          <AdminSidebar
-            nav={nav}
-            pathname={pathname}
-            onLogout={handleLogout}
-            loggingOut={loggingOut}
-            collapsed={!sidebarOpen}
-          />
-        </aside>
+      <SidebarProvider
+        open={sidebarOpen}
+        onOpenChange={(open) => {
+          setSidebarOpen(open);
+          writeSidebarOpenPreference(open);
+        }}
+        className="min-h-svh"
+      >
+        <AdminSidebar
+          nav={nav}
+          pathname={pathname}
+          onLogout={handleLogout}
+          loggingOut={loggingOut}
+        />
 
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="w-[var(--sidebar-width)] p-0 border-border">
-            <AdminSidebar
-              nav={nav}
-              pathname={pathname}
-              onLogout={handleLogout}
-              loggingOut={loggingOut}
-              onNavigate={() => setMobileOpen(false)}
-            />
-          </SheetContent>
-        </Sheet>
+        <SidebarInset className="min-h-svh">
+          <AdminTopbar user={displayUser} onLogout={handleLogout} loggingOut={loggingOut} />
 
-        <div
-          className={cn(
-            "flex-1 min-w-0 flex flex-col min-h-screen relative transition-[margin] duration-300 ease-in-out",
-            sidebarOpen
-              ? "md:ml-[var(--sidebar-width)]"
-              : "md:ml-[var(--sidebar-width-icon)]",
-          )}
-        >
-          <AdminTopbar
-            user={displayUser}
-            onLogout={handleLogout}
-            loggingOut={loggingOut}
-            sidebarOpen={isSidebarVisible}
-            onToggleSidebar={handleToggleSidebar}
-          />
-
-          <main className="relative flex-1">
+          <div className="relative flex-1">
             <AdminBackground />
             <div className="relative z-10">
               <Outlet />
             </div>
-          </main>
-        </div>
-      </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </AdminStoreProvider>
   );
 }

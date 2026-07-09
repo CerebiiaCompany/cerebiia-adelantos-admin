@@ -17,8 +17,6 @@ type AdminTopbarProps = {
   user: AuthUser;
   onLogout: () => void;
   loggingOut: boolean;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
 };
 
 const PROFILE_MENU_ITEMS = [
@@ -45,8 +43,6 @@ export function AdminTopbar({
   user,
   onLogout,
   loggingOut,
-  sidebarOpen,
-  onToggleSidebar,
 }: AdminTopbarProps) {
   const initials = getUserInitials(user.full_name, user.email);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -64,24 +60,24 @@ export function AdminTopbar({
   return (
     <>
       <header className="app-shell-header justify-between gap-2 px-4 md:px-8">
-        <AdminSidebarToggle open={sidebarOpen} onClick={onToggleSidebar} />
+        <AdminSidebarToggle />
 
         <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="size-9 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10"
+            className="size-10 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10"
             aria-label="Notificaciones"
           >
-            <Bell className="size-[18px]" strokeWidth={2} />
+            <Bell className="size-5" strokeWidth={2.25} />
           </Button>
 
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="size-9 rounded-full grid place-items-center text-primary-foreground text-xs font-semibold shadow-sm ring-2 ring-card hover:opacity-90 transition-opacity"
+                className="size-10 rounded-full grid place-items-center text-primary-foreground text-sm font-semibold shadow-sm ring-2 ring-card hover:opacity-90 transition-opacity"
                 style={{ background: BRAND_GRADIENT }}
                 aria-label="Menú de perfil"
               >

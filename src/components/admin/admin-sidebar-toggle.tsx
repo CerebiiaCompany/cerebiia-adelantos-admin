@@ -1,24 +1,23 @@
 import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
-type AdminSidebarToggleProps = {
-  open: boolean;
-  onClick: () => void;
-};
+export function AdminSidebarToggle() {
+  const { open, openMobile, isMobile, toggleSidebar } = useSidebar();
+  const isOpen = isMobile ? openMobile : open;
 
-export function AdminSidebarToggle({ open, onClick }: AdminSidebarToggleProps) {
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon"
-      onClick={onClick}
-      aria-label={open ? "Contraer menú lateral" : "Expandir menú lateral"}
-      aria-pressed={open}
+      onClick={toggleSidebar}
+      aria-label={isOpen ? "Contraer menú lateral" : "Expandir menú lateral"}
+      aria-pressed={isOpen}
       className={cn(
         "size-9 shrink-0 rounded-xl",
-        open
+        isOpen
           ? "text-primary bg-primary/10 hover:bg-primary/15 hover:text-primary"
           : "text-muted-foreground hover:text-primary hover:bg-primary/10",
       )}
