@@ -1,17 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
-import { createEmpresa } from "@/lib/api/empresas";
-import { listUsers, deactivateUser } from "@/lib/api/users";
-import { useAdmin, formatCOP, sumarMontoAdelantado } from "@/lib/admin-store";
+import { createEmpresa, listarEmpresas, reactivarEmpresa } from "@/lib/api/empresas";
+import { deactivateUser, listUsers } from "@/lib/api/users";
+import type { EmpresaListItem } from "@/lib/api/types";
+import { useAdmin, formatCOP } from "@/lib/admin-store";
 import { useEmpleadosMetricas } from "@/hooks/use-empleados-metricas";
 import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
-import {
-  loadEmpresasCache,
-  mergeEmpresaRows,
-  saveEmpresaToCache,
-  type EmpresaListRow,
-} from "@/lib/empresas-cache";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { EmpresaNominaDialog } from "@/components/admin/empresa-nomina-dialog";
 import { Button } from "@/components/ui/button";
@@ -35,6 +30,11 @@ export const Route = createFileRoute("/admin/empresas")({
   component: EmpresasPage,
 });
 
+type EmpresaRow = EmpresaListItem & {
+  adminNombre: string;
+  adminEmail: string;
+};
+
 const emptyForm = {
   nombre: "",
   nit: "",
@@ -47,7 +47,7 @@ function EmpresasPage() {
   const { empresas: mockEmpresas, empleados } = useAdmin();
   const { adelantos: solicitudesApi } = useSolicitudesAdmin();
   const { data: empleadosMetricas } = useEmpleadosMetricas();
-  const [rows, setRows] = useState<EmpresaListRow[]>([]);
+  const [rows, setRows] = useState<EmpresaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -62,9 +62,23 @@ function EmpresasPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const users = await listUsers();
-      const cache = loadEmpresasCache();
-      setRows(mergeEmpresaRows(users, cache));
+      const [empresas, admins] = await Promise.all([
+        listarEmpresas(),
+        listUsers({ role: "empresa" }),
+      ]);
+      const adminById = new Map(admins.map((u) => [u.id, u]));
+      setRows(
+        empresas
+          .map((e) => {
+            const admin = adminById.get(e.user_id);
+            return {
+              ...e,
+              adminNombre: admin?.full_name ?? "—",
+              adminEmail: admin?.email ?? "—",
+            };
+          })
+          .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
+      );
     } catch (error) {
       setLoadError(error instanceof ApiError ? error.message : "No se pudieron cargar las empresas.");
     } finally {
@@ -84,7 +98,7 @@ function EmpresasPage() {
     setSubmitError(null);
 
     try {
-      const created = await createEmpresa({
+      await createEmpresa({
         nombre: form.nombre.trim(),
         nit: form.nit.trim(),
         email: form.adminEmail.trim(),
@@ -92,7 +106,6 @@ function EmpresasPage() {
         full_name: form.adminNombre.trim(),
       });
 
-      saveEmpresaToCache(created);
       setForm(emptyForm);
       setShowPassword(false);
       setOpen(false);
@@ -104,31 +117,37 @@ function EmpresasPage() {
     }
   };
 
-  const handleDesactivar = async (row: EmpresaListRow) => {
-    if (!row.activa) return;
-
-    setTogglingId(row.userId);
+  const handleToggleActiva = async (row: EmpresaRow, nextActiva: boolean) => {
+    setTogglingId(row.id);
     setLoadError(null);
 
     try {
-      await deactivateUser(row.userId);
+      if (!nextActiva) {
+        await deactivateUser(row.user_id);
+      } else {
+        await reactivarEmpresa(row.id);
+      }
       await loadEmpresas();
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error.message : "No se pudo desactivar la empresa.");
+      setLoadError(
+        error instanceof ApiError
+          ? error.message
+          : nextActiva
+            ? "No se pudo reactivar la empresa."
+            : "No se pudo desactivar la empresa.",
+      );
     } finally {
       setTogglingId(null);
     }
   };
 
-  const hayInactivas = useMemo(() => rows.some((r) => !r.activa), [rows]);
-
-  const openNomina = (row: EmpresaListRow) => {
-    const mock = mockEmpresas.find((e) => e.id === row.empresaId || e.nit === row.nit);
+  const openNomina = (row: EmpresaRow) => {
+    const mock = mockEmpresas.find((e) => e.id === row.id || e.nit === row.nit);
     if (mock) {
       setNominaEmpresa(mock);
       return;
     }
-    setLoadError("La nómina demo solo está disponible para empresas del entorno local de prueba.");
+    setLoadError("La nómina local de prueba solo está disponible para empresas demo del panel.");
   };
 
   return (
@@ -266,14 +285,6 @@ function EmpresasPage() {
         }
       />
 
-      {hayInactivas && !loadError && (
-        <p className="mb-4 text-sm text-muted-foreground rounded-lg border border-border bg-muted/30 px-4 py-3">
-          Las empresas inactivas no se pueden reactivar desde el panel: el backend solo expone{" "}
-          <code className="text-xs">DELETE /users/{"{id}"}/</code> (desactivar). Hace falta un
-          endpoint de reactivación en el API.
-        </p>
-      )}
-
       {loadError && (
         <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
           {loadError}
@@ -288,112 +299,94 @@ function EmpresasPage() {
           </div>
         ) : (
           <div className="admin-table-scroll">
-          <table className="admin-table min-w-[44rem]">
-            <thead className="admin-table-head">
-              <tr>
-                <th className="admin-table-th text-left">Empresa</th>
-                <th className="admin-table-th text-left hidden md:table-cell">NIT</th>
-                <th className="admin-table-th text-left hidden lg:table-cell">Admin</th>
-                <th className="admin-table-th text-right">Empleados</th>
-                <th className="admin-table-th text-right">Adelantos</th>
-                <th className="admin-table-th text-right">Monto adelantado</th>
-                <th className="admin-table-th text-center w-14"> </th>
-                <th className="admin-table-th text-right">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((row) => {
-                const mock = mockEmpresas.find((e) => e.id === row.empresaId || e.nit === row.nit);
-                const list = solicitudesApi.filter(
-                  (a) =>
-                    a.empresaId === row.empresaId ||
-                    (row.nit && a.empresaNit === row.nit),
-                );
-                const total = sumarMontoAdelantado(list);
-                const empleadosNomina = mock
-                  ? empleados.filter((emp) => emp.empresaId === mock.id).length
-                  : null;
+            <table className="admin-table min-w-[44rem]">
+              <thead className="admin-table-head">
+                <tr>
+                  <th className="admin-table-th text-left">Empresa</th>
+                  <th className="admin-table-th text-left hidden md:table-cell">NIT</th>
+                  <th className="admin-table-th text-left hidden lg:table-cell">Admin</th>
+                  <th className="admin-table-th text-right">Empleados</th>
+                  <th className="admin-table-th text-right">Adelantos</th>
+                  <th className="admin-table-th text-right">Monto adelantado</th>
+                  <th className="admin-table-th text-center w-14"> </th>
+                  <th className="admin-table-th text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((row) => {
+                  const mock = mockEmpresas.find((e) => e.id === row.id || e.nit === row.nit);
+                  const monto = Number(row.monto_total_adelantado) || 0;
 
-                return (
-                  <tr key={row.userId} className="hover:bg-muted/30">
-                    <td>
-                      <div className="flex items-center gap-3.5">
-                        <div className="admin-table-icon-wrap">
-                          <Building2 className="admin-table-icon" />
+                  return (
+                    <tr key={row.id} className="hover:bg-muted/30">
+                      <td>
+                        <div className="flex items-center gap-3.5">
+                          <div className="admin-table-icon-wrap">
+                            <Building2 className="admin-table-icon" />
+                          </div>
+                          <div>
+                            <div className="admin-table-cell-title">{row.nombre}</div>
+                            <div className="admin-table-cell-sub tabular">{row.nit}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="admin-table-cell-title">{row.nombre}</div>
-                          <div className="admin-table-cell-sub tabular">{row.nit}</div>
+                      </td>
+                      <td className="hidden md:table-cell tabular admin-table-cell-mono">{row.nit}</td>
+                      <td className="hidden lg:table-cell">
+                        <div className="admin-table-cell-title font-medium">{row.adminNombre}</div>
+                        <div className="admin-table-cell-sub">{row.adminEmail}</div>
+                      </td>
+                      <td className="text-right tabular text-base">{row.total_empleados}</td>
+                      <td className="text-right tabular text-base">{row.total_solicitudes}</td>
+                      <td className="text-right admin-table-cell-money">
+                        {monto > 0 ? formatCOP(monto) : "—"}
+                      </td>
+                      <td>
+                        <div className="flex justify-center">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="size-10 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            onClick={() => openNomina(row)}
+                            title="Ver nómina de empleados"
+                            aria-label={`Ver nómina de ${row.nombre}`}
+                            disabled={!mock}
+                          >
+                            <Eye className="size-5" />
+                          </Button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="hidden md:table-cell tabular admin-table-cell-mono">{row.nit}</td>
-                    <td className="hidden lg:table-cell">
-                      <div className="admin-table-cell-title font-medium">{row.adminNombre}</div>
-                      <div className="admin-table-cell-sub">{row.adminEmail}</div>
-                    </td>
-                    <td className="text-right tabular text-base">
-                      {empleadosNomina ?? "—"}
-                    </td>
-                    <td className="text-right tabular text-base">{list.length || "—"}</td>
-                    <td className="text-right admin-table-cell-money">
-                      {list.length > 0 ? formatCOP(total) : "—"}
-                    </td>
-                    <td>
-                      <div className="flex justify-center">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="size-10 text-primary hover:text-primary/80 hover:bg-primary/10"
-                          onClick={() => openNomina(row)}
-                          title="Ver nómina de empleados"
-                          aria-label={`Ver nómina de ${row.nombre}`}
-                          disabled={!mock}
-                        >
-                          <Eye className="size-5" />
-                        </Button>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex items-center justify-end gap-2 sm:gap-3">
-                        <span
-                          className={`hidden sm:inline text-sm font-medium ${row.activa ? "text-success" : "text-muted-foreground"}`}
-                        >
-                          {row.activa ? "Activa" : "Inactiva"}
-                        </span>
-                        <Switch
-                          checked={row.activa}
-                          disabled={togglingId === row.userId || !row.activa}
-                          onCheckedChange={(checked) => {
-                            if (!checked) void handleDesactivar(row);
-                          }}
-                          aria-label={
-                            row.activa
-                              ? "Desactivar empresa"
-                              : "Empresa inactiva (reactivación no disponible en el API)"
-                          }
-                          title={
-                            row.activa
-                              ? "Desactivar empresa"
-                              : "Reactivación pendiente de endpoint en el backend"
-                          }
-                          className="h-6 w-11 data-[state=checked]:[&>span]:translate-x-5 [&>span]:h-5 [&>span]:w-5"
-                        />
-                      </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center justify-end gap-2 sm:gap-3">
+                          <span
+                            className={`hidden sm:inline text-sm font-medium ${row.activa ? "text-success" : "text-muted-foreground"}`}
+                          >
+                            {row.activa ? "Activa" : "Inactiva"}
+                          </span>
+                          <Switch
+                            checked={row.activa}
+                            disabled={togglingId === row.id}
+                            onCheckedChange={(checked) => {
+                              void handleToggleActiva(row, checked);
+                            }}
+                            aria-label={row.activa ? "Desactivar empresa" : "Reactivar empresa"}
+                            title={row.activa ? "Desactivar empresa" : "Reactivar empresa"}
+                            className="h-6 w-11 data-[state=checked]:[&>span]:translate-x-5 [&>span]:h-5 [&>span]:w-5"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="admin-table-empty">
+                      No hay empresas registradas. Crea la primera con el botón «Nueva empresa».
                     </td>
                   </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="admin-table-empty">
-                    No hay empresas registradas. Crea la primera con el botón «Nueva empresa».
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

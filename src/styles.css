@@ -107,6 +107,27 @@
     hsl(var(--primary)) 0%,
     hsl(var(--accent)) 100%
   );
+
+  /* Navegación sidebar — tonos morados del panel Super Admin */
+  --sidebar-nav-active-text: 262 80% 46%;
+  --sidebar-nav-active-bar: linear-gradient(
+    180deg,
+    hsl(280 70% 58%) 0%,
+    hsl(258 90% 66%) 50%,
+    hsl(262 80% 52%) 100%
+  );
+  --sidebar-nav-active-bg: linear-gradient(
+    90deg,
+    hsl(var(--primary) / 0.16) 0%,
+    hsl(var(--accent) / 0.08) 40%,
+    transparent 72%
+  );
+  --sidebar-nav-hover-bg: linear-gradient(
+    90deg,
+    hsl(var(--primary) / 0.1) 0%,
+    hsl(var(--accent) / 0.05) 38%,
+    transparent 70%
+  );
   --shadow-card: 0 4px 24px hsl(262 40% 50% / 0.08);
   --shadow-glow: 0 0 40px hsl(262 80% 50% / 0.15);
 }
@@ -197,11 +218,89 @@
   }
 
   .app-sidebar-section-label {
+    @apply flex items-center gap-3 px-3 mb-5 h-auto;
     font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.25;
     text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.9);
+    color: hsl(var(--primary) / 0.55);
+  }
+
+  .app-sidebar-section-line {
+    @apply h-px flex-1 bg-border/60;
+  }
+
+  .app-sidebar-nav-menu {
+    @apply gap-4;
+  }
+
+  .app-sidebar-nav-button {
+    @apply relative h-auto min-h-[3.5rem] overflow-hidden rounded-lg border-l-[3px] border-transparent;
+    @apply px-4 py-5 gap-9 tracking-normal;
+    @apply font-normal text-muted-foreground;
+    @apply transition-[color,background-color] duration-200 ease-out;
+    font-size: 1.0625rem;
+    line-height: 1.45;
+  }
+
+  .app-sidebar-nav-button svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .app-sidebar-nav-logout {
+    @apply h-auto min-h-[3.5rem] w-full gap-9 rounded-lg px-4 py-5 font-normal tracking-normal;
+    @apply text-destructive hover:bg-transparent hover:text-destructive;
+    font-size: 1.0625rem;
+    line-height: 1.45;
+  }
+
+  .app-sidebar-nav-logout svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  [data-sidebar="menu-button"].app-sidebar-nav-button:hover:not(.app-sidebar-nav-button--active):not([data-active="true"]),
+  [data-sidebar="menu-button"].app-sidebar-nav-button--active:hover,
+  [data-sidebar="menu-button"].app-sidebar-nav-button[data-active="true"]:hover {
+    @apply shadow-none;
+  }
+
+  [data-sidebar="menu-button"].app-sidebar-nav-button:hover:not(.app-sidebar-nav-button--active):not([data-active="true"]) {
+    color: hsl(var(--primary)) !important;
+    background: var(--sidebar-nav-hover-bg) !important;
+  }
+
+  [data-sidebar="menu-button"].app-sidebar-nav-button:hover:not(.app-sidebar-nav-button--active):not([data-active="true"]) svg {
+    color: hsl(var(--primary));
+  }
+
+  [data-sidebar="menu-button"].app-sidebar-nav-button--active,
+  [data-sidebar="menu-button"].app-sidebar-nav-button--active:hover,
+  [data-sidebar="menu-button"].app-sidebar-nav-button[data-active="true"],
+  [data-sidebar="menu-button"].app-sidebar-nav-button[data-active="true"]:hover {
+    @apply border-transparent font-semibold shadow-none;
+    color: hsl(var(--sidebar-nav-active-text)) !important;
+    background: var(--sidebar-nav-active-bg) !important;
+  }
+
+  .app-sidebar-nav-button--active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--sidebar-nav-active-bar);
+  }
+
+  .app-sidebar-nav-button--active .app-sidebar-nav-label,
+  .app-sidebar-nav-button--active svg {
+    color: hsl(var(--sidebar-nav-active-text));
   }
 
   /* Sidebar colapsado: iconos centrados sin recorte */
@@ -233,12 +332,32 @@
     width: 2.5rem !important;
     height: 2.5rem !important;
     min-width: 2.5rem;
+    min-height: 2.5rem !important;
     padding: 0 !important;
     margin-inline: auto;
     border-left-width: 0 !important;
     border-radius: var(--radius);
     gap: 0 !important;
     overflow: visible;
+  }
+
+  .group[data-collapsible="icon"] .app-sidebar-nav-button svg,
+  .group[data-collapsible="icon"] .app-sidebar-nav-logout svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .group[data-collapsible="icon"] .app-sidebar-nav-button--active {
+    color: hsl(var(--sidebar-nav-active-text)) !important;
+    background: var(--sidebar-nav-active-bg) !important;
+  }
+
+  .group[data-collapsible="icon"] .app-sidebar-nav-button--active svg {
+    color: hsl(var(--sidebar-nav-active-text));
+  }
+
+  .group[data-collapsible="icon"] .app-sidebar-nav-button--active::before {
+    display: none;
   }
 
   .group[data-collapsible="icon"] [data-sidebar="menu-button"] > a {

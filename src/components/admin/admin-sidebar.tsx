@@ -57,13 +57,14 @@ export function AdminSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-4 pt-4 group-data-[collapsible=icon]:px-0">
+      <SidebarContent className="px-4 pt-6 pb-3 group-data-[collapsible=icon]:px-0">
         <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="app-sidebar-section-label px-3 mb-1 h-auto group-data-[collapsible=icon]:hidden">
-            Gestión
+          <SidebarGroupLabel className="app-sidebar-section-label group-data-[collapsible=icon]:hidden">
+            <span>Gestión</span>
+            <span className="app-sidebar-section-line" aria-hidden />
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:gap-1">
+            <SidebarMenu className="app-sidebar-nav-menu group-data-[collapsible=icon]:gap-1">
               {nav.map((item) => {
                 const active = isActive(item.to, item.exact);
                 return (
@@ -73,15 +74,13 @@ export function AdminSidebar({
                       isActive={active}
                       tooltip={item.label}
                       className={cn(
-                        "h-auto rounded-r-xl border-l-[3px] tracking-tight transition-colors",
-                        "px-3 py-2.5 text-[15px] gap-3",
+                        "app-sidebar-nav-button",
+                        "data-[active=true]:!bg-transparent data-[active=true]:hover:!bg-transparent",
                         "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:border-l-0",
                         "group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0",
                         "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
                         "group-data-[collapsible=icon]:overflow-visible",
-                        active
-                          ? "border-primary bg-sidebar-accent text-sidebar-accent-foreground font-semibold hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:border-transparent"
-                          : "border-transparent text-muted-foreground font-medium hover:text-foreground hover:bg-secondary",
+                        active && "app-sidebar-nav-button--active",
                       )}
                     >
                       <Link
@@ -95,13 +94,10 @@ export function AdminSidebar({
                         }}
                       >
                         <item.icon
-                          className={cn(
-                            "!size-5 shrink-0 group-data-[collapsible=icon]:!size-5",
-                            active && "text-primary",
-                          )}
+                          className="shrink-0 group-data-[collapsible=icon]:!size-5"
                           strokeWidth={active ? 2.35 : 2}
                         />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                        <span className="app-sidebar-nav-label group-data-[collapsible=icon]:hidden">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -112,7 +108,7 @@ export function AdminSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-2 group-data-[collapsible=icon]:px-2.5 group-data-[collapsible=icon]:py-2">
+      <SidebarFooter className="border-t border-border/60 px-4 py-4 group-data-[collapsible=icon]:px-2.5 group-data-[collapsible=icon]:py-2">
         <SidebarMenu>
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             <SidebarMenuButton
@@ -120,14 +116,13 @@ export function AdminSidebar({
               disabled={loggingOut}
               tooltip={loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
               className={cn(
-                "h-auto font-medium tracking-tight text-destructive hover:bg-destructive/10 hover:text-destructive",
+                "app-sidebar-nav-logout",
                 "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:!size-10",
                 "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
                 "group-data-[collapsible=icon]:overflow-visible",
-                "w-full gap-2.5 px-3 py-2.5 text-[15px] rounded-xl",
               )}
             >
-              <LogOut className="!size-5 shrink-0" strokeWidth={2} />
+              <LogOut className="shrink-0" strokeWidth={2} />
               <span className="group-data-[collapsible=icon]:hidden">
                 {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
               </span>

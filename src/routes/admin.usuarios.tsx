@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { User, UserRole } from "@/lib/api/types";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
@@ -58,23 +58,20 @@ function UsuariosPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listUsers();
+      const data = await listUsers(roleFilter === "all" ? undefined : { role: roleFilter });
       setUsers(data);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudieron cargar los usuarios.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [roleFilter]);
 
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
 
-  const filtered = useMemo(() => {
-    if (roleFilter === "all") return users;
-    return users.filter((u) => u.role === roleFilter);
-  }, [users, roleFilter]);
+  const filtered = users;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,6 +269,7 @@ function UsuariosPage() {
               <tr>
                 <th className="admin-table-th text-left">Usuario</th>
                 <th className="admin-table-th text-left hidden md:table-cell">Correo</th>
+                <th className="admin-table-th text-left hidden xl:table-cell">Empresa</th>
                 <th className="admin-table-th text-center">Rol</th>
                 <th className="admin-table-th text-center">Estado</th>
                 <th className="admin-table-th text-left hidden lg:table-cell">Registro</th>
@@ -286,6 +284,21 @@ function UsuariosPage() {
                     <div className="admin-table-cell-sub md:hidden">{user.email}</div>
                   </td>
                   <td className="hidden md:table-cell admin-table-cell-sub">{user.email}</td>
+                  <td className="hidden xl:table-cell">
+                    {user.empresa ? (
+                      <div>
+                        <div className="admin-table-cell-title text-sm">{user.empresa.nombre}</div>
+                        <div className="admin-table-cell-sub tabular">
+                          {user.empresa.nit}
+                          {typeof user.empleados_count === "number"
+                            ? ` · ${user.empleados_count} emp.`
+                            : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="text-center">
                     <span
                       className={`inline-flex items-center text-sm font-medium rounded-md border px-2.5 py-1 ${ROLE_BADGE_CLASSES[user.role]}`}
@@ -345,7 +358,7 @@ function UsuariosPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
+                  <td colSpan={7} className="admin-table-empty">
                     No hay usuarios que coincidan con el filtro.
                   </td>
                 </tr>
@@ -414,6 +427,19 @@ function UsuariosPage() {
                 <dt className="text-xs text-muted-foreground uppercase">ID</dt>
                 <dd className="font-mono text-xs break-all">{detailUser.id}</dd>
               </div>
+              {detailUser.empresa && (
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Empresa</dt>
+                  <dd className="font-medium">{detailUser.empresa.nombre}</dd>
+                  <dd className="text-muted-foreground tabular text-xs mt-0.5">
+                    NIT {detailUser.empresa.nit} ·{" "}
+                    {detailUser.empresa.activa ? "Activa" : "Inactiva"}
+                    {typeof detailUser.empleados_count === "number"
+                      ? ` · ${detailUser.empleados_count} empleados`
+                      : ""}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-muted-foreground uppercase">Registro</dt>
                 <dd className="tabular">

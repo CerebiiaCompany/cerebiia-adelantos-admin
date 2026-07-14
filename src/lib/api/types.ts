@@ -2,6 +2,13 @@ export const SUPER_ADMIN_ROLE = "super_admin" as const;
 
 export type UserRole = "super_admin" | "empresa" | "empleado";
 
+export interface UserEmpresaResumen {
+  id: string;
+  nombre: string;
+  nit: string;
+  activa: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -10,6 +17,10 @@ export interface User {
   role: UserRole;
   created_at: string;
   updated_at: string;
+  /** Presente en `GET /users/` enriquecido; `null` si no es rol empresa. */
+  empresa?: UserEmpresaResumen | null;
+  /** Empleados de la empresa asociada (0 si no aplica). */
+  empleados_count?: number;
 }
 
 export type AuthUser = User;
@@ -49,9 +60,42 @@ export interface ApiEmpresa {
   nombre: string;
   nit: string;
   user_id: string;
+  dia_pago_nomina: number;
+  activa: boolean;
   created_at: string;
   updated_at: string;
 }
+
+/** Ítem de `GET /empresas/listar/`. */
+export interface EmpresaListItem {
+  id: string;
+  nombre: string;
+  nit: string;
+  user_id: string;
+  dia_pago_nomina: number;
+  activa: boolean;
+  total_empleados: number;
+  total_solicitudes: number;
+  monto_total_adelantado: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReactivarEmpresaResponse {
+  id: string;
+  nombre: string;
+  nit: string;
+  activa: boolean;
+}
+
+export type ListEmpresasParams = {
+  mes?: number;
+  anio?: number;
+};
+
+export type ListUsersParams = {
+  role?: UserRole;
+};
 
 export interface ConfiguracionGlobal {
   porcentaje_maximo_adelanto: string;

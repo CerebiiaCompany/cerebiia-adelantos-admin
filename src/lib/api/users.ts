@@ -1,8 +1,13 @@
 import { apiRequest } from "./client";
-import type { CreateUserPayload, User } from "./types";
+import type { CreateUserPayload, ListUsersParams, User } from "./types";
 
-export function listUsers() {
-  return apiRequest<User[]>("/users/", { auth: true });
+function buildUsersQuery(params?: ListUsersParams): string {
+  if (!params?.role) return "";
+  return `?role=${encodeURIComponent(params.role)}`;
+}
+
+export function listUsers(params?: ListUsersParams) {
+  return apiRequest<User[]>(`/users/${buildUsersQuery(params)}`, { auth: true });
 }
 
 export function getUser(userId: string) {
