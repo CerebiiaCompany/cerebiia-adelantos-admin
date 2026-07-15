@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSolicitudAdmin } from "@/lib/api/adelantos";
-import { fetchCuotasSolicitud, syncPagarCuota } from "@/lib/adelantos-api-sync";
+import { getSolicitudAdmin, listCuotasSolicitud } from "@/lib/api/adelantos";
+import { syncPagarCuota } from "@/lib/adelantos-api-sync";
 import { ApiError } from "@/lib/api/errors";
 import { isBackendUuid } from "@/lib/api/is-api-id";
 import { estadoLabel, formatCOP } from "@/lib/admin-store";
@@ -39,9 +39,10 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
+      // Admin (labels) + cuotas en paralelo — evita descarga de detalle duplicado.
       const [admin, cuotasData] = await Promise.all([
         getSolicitudAdmin(solicitudId),
-        fetchCuotasSolicitud(solicitudId),
+        listCuotasSolicitud(solicitudId),
       ]);
       setDetalle(admin);
       setCuotas(cuotasData);

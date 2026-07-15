@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { estadoLabel, formatCOP } from "@/lib/admin-store";
+import { estadoLabel } from "@/lib/admin-store";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
 import { useDashboardAdelantos } from "@/hooks/use-dashboard-adelantos";
 import { useEmpleadosMetricas } from "@/hooks/use-empleados-metricas";
-import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
-import { dashboardToMonthlyTrend, adelantosToEmpresaBars } from "@/lib/dashboard-api-data";
+import { useSolicitudesRecientes } from "@/hooks/use-solicitudes-recientes";
+import { empresasToBars, useEmpresasRanking } from "@/hooks/use-empresas-ranking";
+import { dashboardToMonthlyTrend } from "@/lib/dashboard-api-data";
 import { ESTADO_TEXT_CLASSES } from "@/lib/adelanto-estado";
 import { getStoredUser } from "@/lib/auth-storage";
 import { PageHeader } from "@/components/admin/page-header";
@@ -25,7 +26,8 @@ function Dashboard() {
   const { valorComision } = useAdelantoParametros();
   const { data: dashboardApi, loading: loadingDashboard } = useDashboardAdelantos();
   const { data: empleadosMetricas } = useEmpleadosMetricas();
-  const { adelantos: solicitudesApi, loading: loadingSolicitudes } = useSolicitudesAdmin();
+  const { adelantos: recientes, loading: loadingRecientes } = useSolicitudesRecientes(6);
+  const { empresas, loading: loadingEmpresas } = useEmpresasRanking();
   const animationKey = useDashboardAnimationKey();
   const displayName = getStoredUser()?.full_name ?? "Administrador";
   const greeting = useTimeBasedGreeting(displayName);
@@ -35,22 +37,16 @@ function Dashboard() {
     [dashboardApi],
   );
 
-  const empresaBars = useMemo(() => adelantosToEmpresaBars(solicitudesApi), [solicitudesApi]);
+  const empresaBars = useMemo(() => empresasToBars(empresas), [empresas]);
 
   const stats = useMemo(() => {
-    const totalAdelantos = dashboardApi?.total_solicitudes ?? solicitudesApi.length;
-    const montoAdelantado = dashboardApi
-      ? Number(dashboardApi.monto_total_solicitado)
-      : solicitudesApi.reduce((s, a) => s + a.monto, 0);
-    const pagado = dashboardApi
-      ? Number(dashboardApi.monto_total_aprobado)
-      : solicitudesApi
-          .filter((a) => a.estado === "pagado")
-          .reduce((s, a) => s + a.monto, 0);
+    const totalAdelantos = dashboardApi?.total_solicitudes ?? 0;
+    const montoAdelantado = dashboardApi ? Number(dashboardApi.monto_total_solicitado) : 0;
+    const pagado = dashboardApi ? Number(dashboardApi.monto_total_aprobado) : 0;
     const tarifa = Number(valorComision) || 0;
-    const comisionEstimada = solicitudesApi
-      .filter((a) => a.estado === "pagado")
-      .reduce((s, a) => s + tarifa * a.numeroCuotas, 0);
+    const cuotasPromedio = dashboardApi?.cuotas_mas_frecuente ?? 1;
+    const pagadasApprox = dashboardApi?.conteo_por_estado?.pagado ?? 0;
+    const comisionEstimada = tarifa * cuotasPromedio * pagadasApprox;
 
     return {
       empleadosActivos: empleadosMetricas?.activos ?? 0,
@@ -61,17 +57,9 @@ function Dashboard() {
       comisionEstimada,
       tasaAprobacion: dashboardApi?.tasa_aprobacion_por_mes.at(-1)?.tasa,
     };
-  }, [dashboardApi, solicitudesApi, empleadosMetricas, valorComision]);
+  }, [dashboardApi, empleadosMetricas, valorComision]);
 
-  const recientes = useMemo(
-    () =>
-      [...solicitudesApi]
-        .sort((a, b) => +new Date(b.fechaSolicitud) - +new Date(a.fechaSolicitud))
-        .slice(0, 6),
-    [solicitudesApi],
-  );
-
-  const loading = loadingDashboard || loadingSolicitudes;
+  const loading = loadingDashboard || loadingRecientes || loadingEmpresas;
 
   return (
     <div className="admin-page animate-fade-in">
@@ -181,16 +169,12 @@ function Dashboard() {
         />
       </section>
 
-      <DashboardTrendChart
-        adelantos={solicitudesApi}
-        trendData={trendData}
-        animationKey={animationKey}
-      />
+      <DashboardTrendChart adelantos={[]} trendData={trendData} animationKey={animationKey} />
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2">
           <DashboardEmpresaChart
-            adelantos={solicitudesApi}
+            adelantos={[]}
             empresas={[]}
             empresaBars={empresaBars}
             animationKey={animationKey}
@@ -230,7 +214,9 @@ function Dashboard() {
               </div>
             ))}
             {recientes.length === 0 && !loading && (
-              <p className="text-sm text-muted-foreground py-6 text-center">Sin solicitudes registradas.</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Sin solicitudes registradas.
+              </p>
             )}
           </div>
         </div>

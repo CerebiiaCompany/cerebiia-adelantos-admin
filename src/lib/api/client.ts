@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "./config";
 import { ApiError, parseApiErrorMessage } from "./errors";
-import { scheduleApiRequest } from "./rate-limit";
+import { rateLimited, scheduleApiRequest } from "./rate-limit";
 import type { RefreshResponse } from "./types";
 import { clearAuthSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth-storage";
 
@@ -96,11 +96,13 @@ export async function apiRequest<T>(
         options.auth &&
         error instanceof ApiError &&
         error.status === 401 &&
-        !NO_REFRESH_PATHS.includes(path)
+        !NO_REFRESH_PATHS.includes(path.split("?")[0] ?? path)
       ) {
         const refreshed = await refreshAccessTokenOnce();
         if (refreshed) {
-          return apiRequest<T>(path, options, true);
+          // Evitar dedupe GET: si reusáramos la misma key, el retry esperaría
+          // la promesa original (401) y nunca enviaría el token nuevo.
+          return rateLimited(() => executeRequest<T>(path, options));
         }
       }
       throw error;

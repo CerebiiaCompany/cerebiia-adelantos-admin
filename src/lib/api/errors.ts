@@ -40,6 +40,9 @@ export function parseApiErrorMessage(status: number, body: unknown): string {
     const record = body as Record<string, unknown>;
 
     if (typeof record.detail === "string") {
+      if (/signature has expired|token.*expired|expirad/i.test(record.detail)) {
+        return "La sesión expiró. Se intentará renovar el token; si el error continúa, vuelve a iniciar sesión.";
+      }
       if (/monto neto.*mayor a 0/i.test(record.detail)) {
         return `${record.detail}. Hay solicitudes en la base de datos con monto neto inválido, o la tarifa de comisión configurada deja el neto en cero. Revisa Configuración y los registros en el backend.`;
       }

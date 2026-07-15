@@ -65,7 +65,7 @@ export async function syncPagarCuotasSolicitud(solicitudId: string): Promise<boo
   return true;
 }
 
-/** Carga todas las páginas del listado admin y las mapea al modelo UI. */
+/** @deprecated Prefer useSolicitudesAdmin (paginado). Solo para exports/jobs offline. */
 export async function fetchAdelantosFromApi(
   params?: Omit<ListSolicitudesAdminParams, "page" | "page_size">,
 ): Promise<Adelanto[]> {

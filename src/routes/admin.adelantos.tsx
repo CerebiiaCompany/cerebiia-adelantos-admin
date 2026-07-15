@@ -6,7 +6,9 @@ import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
 import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
-import { buildSolicitudesApiParams, empresasFromAdelantos } from "@/lib/solicitudes-filter-params";
+import { buildSolicitudesApiParams } from "@/lib/solicitudes-filter-params";
+import { listarEmpresas } from "@/lib/api/empresas";
+import type { Empresa } from "@/lib/admin-store";
 import {
   fetchCuotasSolicitud,
   syncAprobarSolicitud,
@@ -44,6 +46,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Eye,
   Upload,
   Copy,
@@ -73,15 +85,28 @@ function AdelantosPage() {
   const [paying, setPaying] = useState<Adelanto | null>(null);
   const [rejecting, setRejecting] = useState<Adelanto | null>(null);
   const [viewingMotivo, setViewingMotivo] = useState<Adelanto | null>(null);
+  const [pendingEstado, setPendingEstado] = useState<{
+    adelanto: Adelanto;
+    nuevoEstado: EstadoAdelanto;
+  } | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiParams, setApiParams] = useState<ListSolicitudesAdminParams | undefined>(undefined);
+  const [empresasCatalog, setEmpresasCatalog] = useState<Empresa[]>([]);
 
-  const { adelantos, loading: loadingList, error: loadError, reload } = useSolicitudesAdmin(apiParams);
-  const empresas = useMemo(() => empresasFromAdelantos(adelantos), [adelantos]);
+  const {
+    adelantos,
+    loading: loadingList,
+    error: loadError,
+    reload,
+    page,
+    setPage,
+    count,
+    totalPages,
+  } = useSolicitudesAdmin(apiParams);
+  const empresas = empresasCatalog;
 
   const filters = useAdelantosFilters(adelantos, empresas, {
-    defaultEstados: ["en_revision", "aprobado"],
     sortOrder: "asc",
     serverFiltered: true,
   });
@@ -115,10 +140,44 @@ function AdelantosPage() {
   }, [mes, fechaDesde, fechaHasta, estado]);
 
   useEffect(() => {
+    let cancelled = false;
+    void listarEmpresas()
+      .then((rows) => {
+        if (cancelled) return;
+        setEmpresasCatalog(
+          rows
+            .map((e) => ({
+              id: e.id,
+              nombre: e.nombre,
+              nit: e.nit,
+              adminNombre: "",
+              adminEmail: "",
+              adminPassword: "",
+              activa: e.activa,
+              createdAt: e.created_at,
+            }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setEmpresasCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (loadError) setApiError(loadError);
   }, [loadError]);
 
-  const handleEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
+  /** Abre confirmación antes de cambiar estado (evita cambios accidentales). */
+  const requestEstadoChange = (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
+    if (adelanto.estado === "pagado" || adelanto.estado === nuevoEstado) return;
+    setPendingEstado({ adelanto, nuevoEstado });
+  };
+
+  const applyEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
     if (adelanto.estado === "pagado") return;
     if (nuevoEstado === "rechazado" && adelanto.estado !== "rechazado") {
       setRejecting(adelanto);
@@ -170,6 +229,13 @@ function AdelantosPage() {
 
     updateAdelantoEstado(adelanto.id, nuevoEstado);
     if (isBackendUuid(adelanto.id)) void reload();
+  };
+
+  const confirmEstadoChange = async () => {
+    if (!pendingEstado) return;
+    const { adelanto, nuevoEstado } = pendingEstado;
+    setPendingEstado(null);
+    await applyEstadoChange(adelanto, nuevoEstado);
   };
 
   const handleMarcarPagado = async (id: string, file: File) => {
@@ -324,7 +390,7 @@ function AdelantosPage() {
                     showFecha
                     desglose={calcular(a.monto, a.numeroCuotas)}
                     onViewDetalle={() => setDetalleId(a.id)}
-                    onEstadoChange={(v) => handleEstadoChange(a, v)}
+                    onEstadoChange={(v) => requestEstadoChange(a, v)}
                   />
                 );
               })}
@@ -398,7 +464,7 @@ function AdelantosPage() {
                     empresaNombre={empresaNombre}
                     desglose={calcular(a.monto, a.numeroCuotas)}
                     allowedEstados={["aprobado", "rechazado"]}
-                    onEstadoChange={(v) => handleEstadoChange(a, v)}
+                    onEstadoChange={(v) => requestEstadoChange(a, v)}
                     onView={a.estado === "aprobado" ? () => setViewing(a) : undefined}
                     onPay={a.estado === "aprobado" ? () => setPaying(a) : undefined}
                     onViewDetalle={() => setDetalleId(a.id)}
@@ -412,7 +478,7 @@ function AdelantosPage() {
                     {hasActiveFilters
                       ? "No hay solicitudes que coincidan con los filtros seleccionados."
                       : adelantos.length > 0
-                        ? "No hay solicitudes en revisión ni aprobadas en este momento."
+                        ? "No hay solicitudes visibles con el filtro de empresa actual."
                         : "No hay solicitudes de adelanto registradas."}
                   </td>
                 </tr>
@@ -420,9 +486,38 @@ function AdelantosPage() {
             </tbody>
           </table>
         </div>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page <= 1 || loadingList}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Anterior
+          </Button>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {page} / {totalPages} · {count} reg.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages || loadingList}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Siguiente
+          </Button>
+        </div>
       </div>
 
       <SolicitudDetalleDrawer solicitudId={detalleId} onClose={() => setDetalleId(null)} />
+      <ConfirmEstadoDialog
+        pending={pendingEstado}
+        loading={apiLoading}
+        onCancel={() => setPendingEstado(null)}
+        onConfirm={() => void confirmEstadoChange()}
+      />
       <CuentaDialog
         adelanto={viewing}
         empresa={viewing ? empresas.find((x) => x.id === viewing.empresaId)?.nombre : undefined}
@@ -671,7 +766,14 @@ function EstadoSelect({
     : opciones;
 
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as EstadoAdelanto)}>
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        const next = v as EstadoAdelanto;
+        if (next === value) return;
+        onChange(next);
+      }}
+    >
       <SelectTrigger className="h-9 px-2.5 w-auto border-none bg-transparent hover:bg-muted/50 [&>svg]:size-4">
         <SelectValue asChild>
           <EstadoBadge estado={value} />
@@ -685,6 +787,84 @@ function EstadoSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function ConfirmEstadoDialog({
+  pending,
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  pending: { adelanto: Adelanto; nuevoEstado: EstadoAdelanto } | null;
+  loading: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const esRechazo = pending?.nuevoEstado === "rechazado";
+
+  return (
+    <AlertDialog
+      open={!!pending}
+      onOpenChange={(open) => {
+        if (!open && !loading) onCancel();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirmar cambio de estado</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              {pending && (
+                <>
+                  <p>
+                    ¿Confirmas cambiar el estado de la solicitud de{" "}
+                    <span className="font-semibold text-foreground">
+                      {pending.adelanto.empleadoNombre}
+                    </span>
+                    ?
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2.5">
+                    <EstadoBadge estado={pending.adelanto.estado} />
+                    <span className="text-muted-foreground" aria-hidden>
+                      →
+                    </span>
+                    <EstadoBadge estado={pending.nuevoEstado} />
+                  </div>
+                  {esRechazo ? (
+                    <p>A continuación deberás indicar el motivo del rechazo.</p>
+                  ) : (
+                    <p>Esta acción actualizará el estado de la solicitud.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={loading}
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+            }}
+            className={esRechazo ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="size-4 mr-2 animate-spin" />
+                Aplicando…
+              </>
+            ) : esRechazo ? (
+              "Continuar al rechazo"
+            ) : (
+              "Confirmar cambio"
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

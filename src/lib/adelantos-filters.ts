@@ -40,9 +40,16 @@ export function useAdelantosFilters(
 ) {
   const { defaultEstados, sortOrder = "desc", serverFiltered = false } = options;
   const months = useMemo(() => {
+    if (serverFiltered) {
+      const now = new Date();
+      return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      });
+    }
     const set = new Set(adelantos.map((a) => monthKey(a.fechaSolicitud)));
     return Array.from(set).sort().reverse();
-  }, [adelantos]);
+  }, [adelantos, serverFiltered]);
 
   const [mes, setMes] = useState<string>("all");
   const [fechaDesde, setFechaDesde] = useState<string>("");

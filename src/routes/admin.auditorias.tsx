@@ -1,25 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useAdmin, formatCOP, estadoLabel } from "@/lib/admin-store";
-import {
-  accionAuditoriaLabel,
-  ACCION_AUDITORIA_BADGE,
-  type AccionAuditoria,
-  type RegistroAuditoria,
-} from "@/lib/auditoria";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
+import { getAuditoriaIndicadores, listAuditoria } from "@/lib/api/admin";
+import { ApiError } from "@/lib/api/errors";
+import type { AuditoriaAdminItem, AuditoriaIndicadoresApi } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   ClipboardList,
   Eye,
@@ -29,6 +19,7 @@ import {
   ShieldCheck,
   ChevronDown,
   SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/auditorias")({
@@ -36,126 +27,164 @@ export const Route = createFileRoute("/admin/auditorias")({
   component: AuditoriasPage,
 });
 
-const ACCIONES: AccionAuditoria[] = [
-  "paso_revision",
-  "aprobacion",
-  "rechazo",
-  "pago_confirmado",
-];
+const ACCION_LABEL: Record<string, string> = {
+  aprobar: "Aprobó solicitud",
+  aprobado: "Aprobó solicitud",
+  aprobacion: "Aprobó solicitud",
+  rechazar: "Rechazó solicitud",
+  rechazado: "Rechazó solicitud",
+  rechazo: "Rechazó solicitud",
+  revisar: "Pasó a revisión",
+  en_revision: "Pasó a revisión",
+  paso_revision: "Pasó a revisión",
+  pagar: "Confirmó pago",
+  pagado: "Confirmó pago",
+  pago_confirmado: "Confirmó pago",
+};
 
-function AccionBadge({ accion }: { accion: AccionAuditoria }) {
+const ACCION_BADGE: Record<string, string> = {
+  aprobar: "bg-primary/15 text-primary border-primary/30",
+  aprobado: "bg-primary/15 text-primary border-primary/30",
+  aprobacion: "bg-primary/15 text-primary border-primary/30",
+  rechazar: "bg-destructive/15 text-destructive border-destructive/30",
+  rechazado: "bg-destructive/15 text-destructive border-destructive/30",
+  rechazo: "bg-destructive/15 text-destructive border-destructive/30",
+  revisar: "bg-warning/15 text-warning border-warning/30",
+  en_revision: "bg-warning/15 text-warning border-warning/30",
+  paso_revision: "bg-warning/15 text-warning border-warning/30",
+  pagar: "bg-success/15 text-success border-success/30",
+  pagado: "bg-success/15 text-success border-success/30",
+  pago_confirmado: "bg-success/15 text-success border-success/30",
+};
+
+function accionLabel(accion: string) {
+  return ACCION_LABEL[accion] ?? accion.replace(/_/g, " ");
+}
+
+function AccionBadge({ accion }: { accion: string }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
-        ACCION_AUDITORIA_BADGE[accion],
+        ACCION_BADGE[accion] ?? "bg-muted text-muted-foreground border-border",
       )}
     >
-      {accionAuditoriaLabel[accion]}
+      {accionLabel(accion)}
     </span>
   );
 }
 
+function estadoUi(estado: string): string {
+  return estadoLabel[estado as EstadoAdelanto] ?? estado.replace(/_/g, " ");
+}
+
+function toIsoDayStart(date: string) {
+  return date ? `${date}T00:00:00` : undefined;
+}
+
+function toIsoDayEnd(date: string) {
+  return date ? `${date}T23:59:59` : undefined;
+}
+
 function AuditoriasPage() {
-  const { empresas, auditorias } = useAdmin();
-  const [accion, setAccion] = useState<AccionAuditoria | "all">("all");
-  const [empresaId, setEmpresaId] = useState("all");
-  const [busqueda, setBusqueda] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<AuditoriaAdminItem[]>([]);
+  const [count, setCount] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [indicadores, setIndicadores] = useState<AuditoriaIndicadoresApi | null>(null);
 
-  const empresaNombre = useMemo(() => {
-    const map = new Map(empresas.map((e) => [e.id, e.nombre]));
-    return (id: string) => map.get(id) ?? "—";
-  }, [empresas]);
-
-  const filtered = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    const desde = fechaDesde ? new Date(`${fechaDesde}T00:00:00`) : null;
-    const hasta = fechaHasta ? new Date(`${fechaHasta}T23:59:59`) : null;
-
-    return auditorias.filter((row) => {
-      if (accion !== "all" && row.accion !== accion) return false;
-      if (empresaId !== "all" && row.empresaId !== empresaId) return false;
-
-      const ts = new Date(row.timestamp);
-      if (desde && ts < desde) return false;
-      if (hasta && ts > hasta) return false;
-
-      if (!q) return true;
-      return (
-        row.actorNombre.toLowerCase().includes(q) ||
-        row.actorEmail.toLowerCase().includes(q) ||
-        row.empleadoNombre.toLowerCase().includes(q) ||
-        row.empleadoCedula.includes(q) ||
-        empresaNombre(row.empresaId).toLowerCase().includes(q)
-      );
-    });
-  }, [auditorias, accion, empresaId, busqueda, fechaDesde, fechaHasta, empresaNombre]);
-
-  const stats = useMemo(() => {
-    const count = (a: AccionAuditoria) => filtered.filter((r) => r.accion === a).length;
-    return {
-      total: filtered.length,
-      revision: count("paso_revision"),
-      aprobacion: count("aprobacion"),
-      rechazo: count("rechazo"),
-      pago: count("pago_confirmado"),
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const dateParams = {
+      fecha_desde: toIsoDayStart(fechaDesde),
+      fecha_hasta: toIsoDayEnd(fechaHasta),
     };
-  }, [filtered]);
+    try {
+      const [listado, inds] = await Promise.all([
+        listAuditoria({ ...dateParams, page, page_size: 20 }),
+        getAuditoriaIndicadores(dateParams),
+      ]);
+      setRows(listado.results);
+      setCount(listado.count);
+      setPageSize(listado.page_size);
+      setIndicadores(inds);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo cargar la auditoría.");
+      setRows([]);
+      setCount(0);
+      setIndicadores(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [fechaDesde, fechaHasta, page]);
 
-  const hayFiltrosActivos =
-    accion !== "all" ||
-    empresaId !== "all" ||
-    busqueda.trim() !== "" ||
-    fechaDesde !== "" ||
-    fechaHasta !== "";
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(count / Math.max(pageSize, 1))),
+    [count, pageSize],
+  );
+
+  const hayFiltrosActivos = fechaDesde !== "" || fechaHasta !== "";
 
   return (
     <div className="admin-page">
       <AdminPageHeader
         eyebrow="Trazabilidad"
         title="Auditorías"
-        subtitle="Informe de acciones del super admin sobre solicitudes de adelanto: revisiones, aprobaciones, rechazos y pagos confirmados."
+        subtitle="Registro del servidor de acciones del super admin sobre solicitudes de adelanto."
       />
+
+      {error && (
+        <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+          {error}
+        </p>
+      )}
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <AdminMetricCard
-          label="Total acciones"
+          label="Total en listado"
           icon={ClipboardList}
           iconTone="trending"
-          value={String(stats.total)}
-          sub="según filtros aplicados"
+          value={loading ? "…" : String(count)}
+          sub="según filtros de fecha"
           accent
         />
         <AdminMetricCard
-          label="Pasaron a revisión"
+          label="En revisión"
           icon={Eye}
           iconTone="wallet"
-          value={String(stats.revision)}
-          sub="cambios de estado"
+          value={loading ? "…" : String(indicadores?.en_revision ?? 0)}
+          sub="solicitudes actuales"
         />
         <AdminMetricCard
           label="Aprobaciones"
           icon={CheckCircle2}
           iconTone="success"
-          value={String(stats.aprobacion)}
-          sub="solicitudes aprobadas"
+          value={loading ? "…" : String(indicadores?.aprobadas ?? 0)}
+          sub="acciones auditadas"
         />
         <AdminMetricCard
           label="Rechazos"
           icon={XCircle}
           iconTone="default"
-          value={String(stats.rechazo)}
-          sub="con motivo registrado"
+          value={loading ? "…" : String(indicadores?.rechazadas ?? 0)}
+          sub="acciones auditadas"
         />
         <AdminMetricCard
           label="Pagos confirmados"
           icon={Banknote}
           iconTone="success"
-          value={String(stats.pago)}
-          sub="comprobante adjuntado"
+          value={loading ? "…" : String(indicadores?.pagos_confirmados ?? 0)}
+          sub="solicitudes pagadas"
         />
       </section>
 
@@ -182,73 +211,53 @@ function AuditoriasPage() {
               )}
             />
           </Button>
-          <span className="text-sm text-muted-foreground">
-            {filtered.length} registro(s)
+          <span className="text-sm text-muted-foreground flex items-center gap-2">
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {count} registro(s)
           </span>
         </div>
 
         {filtrosAbiertos && (
           <div className="border-t border-border">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 p-4 sm:p-5">
-            <div className="space-y-1.5 lg:col-span-2">
-              <Label htmlFor="auditoria-busqueda">Buscar</Label>
-              <Input
-                id="auditoria-busqueda"
-                placeholder="Admin, empleado, cédula o empresa…"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Acción</Label>
-              <Select value={accion} onValueChange={(v) => setAccion(v as AccionAuditoria | "all")}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las acciones</SelectItem>
-                  {ACCIONES.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {accionAuditoriaLabel[a]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Empresa</Label>
-              <Select value={empresaId} onValueChange={setEmpresaId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {empresas.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="auditoria-desde">Desde</Label>
-              <Input
-                id="auditoria-desde"
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="auditoria-hasta">Hasta</Label>
-              <Input
-                id="auditoria-hasta"
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-4 sm:p-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="auditoria-desde">Desde</Label>
+                <Input
+                  id="auditoria-desde"
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => {
+                    setFechaDesde(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="auditoria-hasta">Hasta</Label>
+                <Input
+                  id="auditoria-hasta"
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => {
+                    setFechaHasta(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10"
+                  onClick={() => {
+                    setFechaDesde("");
+                    setFechaHasta("");
+                    setPage(1);
+                  }}
+                >
+                  Limpiar fechas
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -260,33 +269,71 @@ function AuditoriasPage() {
             <ShieldCheck className="size-5 text-primary shrink-0" />
             <h2 className="admin-section-title text-lg">Registro de acciones</h2>
           </div>
-          <span className="text-sm text-muted-foreground">{filtered.length} registro(s)</span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground tabular">
+              {page} / {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
 
         <div className="admin-table-scroll">
-          <table className="admin-table min-w-[56rem]">
+          <table className="admin-table min-w-[48rem]">
             <thead className="admin-table-head">
               <tr>
                 <th className="admin-table-th text-left">Fecha</th>
                 <th className="admin-table-th text-left">Super admin</th>
                 <th className="admin-table-th text-left">Acción</th>
-                <th className="admin-table-th text-left">Empleado</th>
-                <th className="admin-table-th text-left hidden lg:table-cell">Empresa</th>
-                <th className="admin-table-th text-right">Monto</th>
-                <th className="admin-table-th text-left hidden md:table-cell">Estado</th>
-                <th className="admin-table-th text-left hidden xl:table-cell">Detalle</th>
+                <th className="admin-table-th text-left">Solicitud</th>
+                <th className="admin-table-th text-left">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((row) => (
-                <AuditoriaRow key={row.id} row={row} empresa={empresaNombre(row.empresaId)} />
+              {rows.map((row) => (
+                <tr key={row.id} className="hover:bg-muted/30 align-top">
+                  <td className="tabular text-muted-foreground whitespace-nowrap">
+                    {new Date(row.created_at).toLocaleString("es-CO", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </td>
+                  <td>
+                    <div className="font-medium text-sm">{row.admin_nombre || "—"}</div>
+                  </td>
+                  <td>
+                    <AccionBadge accion={row.accion} />
+                  </td>
+                  <td className="tabular text-sm text-muted-foreground">
+                    {row.solicitud_id.slice(0, 8)}…
+                  </td>
+                  <td className="text-sm text-muted-foreground">
+                    <span>{estadoUi(row.estado_anterior)}</span>
+                    <span className="mx-1.5 text-foreground/40">→</span>
+                    <span className="font-medium text-foreground">{estadoUi(row.estado_nuevo)}</span>
+                  </td>
+                </tr>
               ))}
-              {filtered.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="admin-table-empty">
-                    {auditorias.length === 0
-                      ? "Aún no hay acciones registradas. Los cambios de estado en Adelantos aparecerán aquí automáticamente."
-                      : "No hay registros con los filtros seleccionados."}
+                  <td colSpan={5} className="admin-table-empty">
+                    No hay registros de auditoría en el servidor para los filtros seleccionados.
                   </td>
                 </tr>
               )}
@@ -295,40 +342,5 @@ function AuditoriasPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function AuditoriaRow({ row, empresa }: { row: RegistroAuditoria; empresa: string }) {
-  return (
-    <tr className="hover:bg-muted/30 align-top">
-      <td className="tabular text-muted-foreground whitespace-nowrap">
-        {new Date(row.timestamp).toLocaleString("es-CO", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })}
-      </td>
-      <td>
-        <div className="font-medium text-sm">{row.actorNombre}</div>
-        <div className="text-xs text-muted-foreground truncate max-w-[12rem]">{row.actorEmail}</div>
-      </td>
-      <td>
-        <AccionBadge accion={row.accion} />
-      </td>
-      <td>
-        <div className="font-medium text-sm">{row.empleadoNombre}</div>
-        <div className="text-xs text-muted-foreground tabular">{row.empleadoCedula}</div>
-        <div className="text-xs text-muted-foreground lg:hidden mt-0.5">{empresa}</div>
-      </td>
-      <td className="hidden lg:table-cell text-sm">{empresa}</td>
-      <td className="text-right admin-table-cell-money tabular">{formatCOP(row.monto)}</td>
-      <td className="hidden md:table-cell text-sm text-muted-foreground">
-        <span>{estadoLabel[row.estadoAnterior]}</span>
-        <span className="mx-1.5 text-foreground/40">→</span>
-        <span className="font-medium text-foreground">{estadoLabel[row.estadoNuevo]}</span>
-      </td>
-      <td className="hidden xl:table-cell text-sm text-muted-foreground max-w-[16rem]">
-        {row.detalle ?? "—"}
-      </td>
-    </tr>
   );
 }

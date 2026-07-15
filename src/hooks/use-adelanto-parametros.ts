@@ -41,9 +41,6 @@ export function useAdelantoParametros() {
 
   useEffect(() => {
     void reload();
-    const onFocus = () => void reload();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
   }, [reload]);
 
   const calcular = useCallback(

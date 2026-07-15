@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
-import { createEmpresa, listarEmpresas, reactivarEmpresa } from "@/lib/api/empresas";
-import { deactivateUser, listUsers } from "@/lib/api/users";
+import { createEmpresa, listarEmpresas, reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
+import { listUsers } from "@/lib/api/users";
 import type { EmpresaListItem } from "@/lib/api/types";
 import { useAdmin, formatCOP } from "@/lib/admin-store";
 import { useEmpleadosMetricas } from "@/hooks/use-empleados-metricas";
-import { useSolicitudesAdmin } from "@/hooks/use-solicitudes-admin";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { EmpresaNominaDialog } from "@/components/admin/empresa-nomina-dialog";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,6 @@ const emptyForm = {
 
 function EmpresasPage() {
   const { empresas: mockEmpresas, empleados } = useAdmin();
-  const { adelantos: solicitudesApi } = useSolicitudesAdmin();
   const { data: empleadosMetricas } = useEmpleadosMetricas();
   const [rows, setRows] = useState<EmpresaRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +121,7 @@ function EmpresasPage() {
 
     try {
       if (!nextActiva) {
-        await deactivateUser(row.user_id);
+        await suspenderEmpresa(row.id);
       } else {
         await reactivarEmpresa(row.id);
       }
@@ -394,7 +392,7 @@ function EmpresasPage() {
       <EmpresaNominaDialog
         empresa={nominaEmpresa}
         empleados={empleados}
-        adelantos={solicitudesApi}
+        adelantos={[]}
         onClose={() => setNominaEmpresa(null)}
       />
     </div>

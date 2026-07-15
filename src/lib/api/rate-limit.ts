@@ -1,8 +1,8 @@
 /** Intervalo mínimo entre inicios de petición (ms). */
-const MIN_GAP_MS = 120;
+const MIN_GAP_MS = 40;
 
 /** Máximo de peticiones HTTP simultáneas. */
-const MAX_CONCURRENT = 4;
+const MAX_CONCURRENT = 6;
 
 /** Reutiliza la misma promesa si un GET idéntico ya está en vuelo. */
 const DEDUPE_GET = true;

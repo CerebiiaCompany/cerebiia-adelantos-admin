@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { User, UserRole } from "@/lib/api/types";
+import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Link } from "@tanstack/react-router";
 import {
   Dialog,
@@ -25,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, UserX, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Info } from "lucide-react";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -38,6 +40,27 @@ const emptyForm = {
   password: "",
 };
 
+/** Estado visible del toggle: para rol empresa prioriza `empresa.activa`. */
+function userToggleActive(user: User): boolean {
+  if (user.role === "empresa" && user.empresa) {
+    return user.empresa.activa;
+  }
+  return user.is_active;
+}
+
+/**
+ * Reactiva empresa (y su admin). Si la empresa ya está activa pero el user no,
+ * hace suspender→reactivar para sincronizar login.
+ */
+async function ensureEmpresaActiva(empresaId: string, empresaYaActiva: boolean) {
+  if (!empresaYaActiva) {
+    await reactivarEmpresa(empresaId);
+    return;
+  }
+  await suspenderEmpresa(empresaId);
+  await reactivarEmpresa(empresaId);
+}
+
 function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +70,7 @@ function UsuariosPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailUser, setDetailUser] = useState<User | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -96,20 +119,51 @@ function UsuariosPage() {
     }
   };
 
-  const handleDeactivate = async (user: User) => {
-    if (!user.is_active) return;
-    if (!window.confirm(`¿Desactivar a ${user.full_name}? No podrá iniciar sesión.`)) return;
+  const handleToggleActivo = async (user: User, nextActive: boolean) => {
+    if (user.role === "super_admin") return;
 
-    setDeactivatingId(user.id);
+    const currentlyActive = userToggleActive(user);
+    if (currentlyActive === nextActive) return;
+
+    const label = nextActive ? "activar" : "desactivar";
+    if (
+      !window.confirm(
+        nextActive
+          ? `¿Activar a ${user.full_name}? Podrá iniciar sesión de nuevo.`
+          : `¿Desactivar a ${user.full_name}? No podrá iniciar sesión.`,
+      )
+    ) {
+      return;
+    }
+
+    setTogglingId(user.id);
     setError(null);
 
     try {
-      await deactivateUser(user.id);
+      if (user.role === "empresa" && user.empresa?.id) {
+        if (nextActive) {
+          await ensureEmpresaActiva(user.empresa.id, user.empresa.activa);
+        } else {
+          await suspenderEmpresa(user.empresa.id);
+        }
+      } else if (!nextActive) {
+        await deactivateUser(user.id);
+      } else {
+        throw new Error(
+          "No hay endpoint para reactivar usuarios empleado. Pídelo al backend (POST /users/{id}/reactivar/).",
+        );
+      }
       await loadUsers();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo desactivar el usuario.");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : `No se pudo ${label} el usuario.`,
+      );
     } finally {
-      setDeactivatingId(null);
+      setTogglingId(null);
     }
   };
 
@@ -253,7 +307,7 @@ function UsuariosPage() {
       )}
 
       <p className="mb-4 text-sm text-muted-foreground">
-        {users.length} en el sistema · {users.filter((u) => u.is_active).length} activos
+        {users.length} en el sistema · {users.filter((u) => userToggleActive(u)).length} activos
       </p>
 
       <div className="admin-panel-card-flush">
@@ -308,16 +362,21 @@ function UsuariosPage() {
                   </td>
                   <td className="text-center">
                     <span
-                      className={`text-sm font-medium ${user.is_active ? "text-success" : "text-muted-foreground"}`}
+                      className={`text-sm font-medium ${userToggleActive(user) ? "text-success" : "text-muted-foreground"}`}
                     >
-                      {user.is_active ? "Activo" : "Inactivo"}
+                      {userToggleActive(user) ? "Activo" : "Inactivo"}
                     </span>
+                    {user.role === "empresa" &&
+                      user.empresa &&
+                      user.empresa.activa !== user.is_active && (
+                        <div className="text-[10px] text-warning mt-0.5">Desync login</div>
+                      )}
                   </td>
                   <td className="hidden lg:table-cell text-muted-foreground tabular">
                     {new Date(user.created_at).toLocaleDateString("es-CO")}
                   </td>
                   <td className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end items-center gap-2">
                       <Button
                         type="button"
                         variant="ghost"
@@ -329,29 +388,36 @@ function UsuariosPage() {
                       >
                         <Info className="size-5" />
                       </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10 px-2 sm:px-3"
-                        disabled={!user.is_active || deactivatingId === user.id || user.role === "super_admin"}
-                        onClick={() => void handleDeactivate(user)}
-                        title={
-                          user.role === "super_admin"
-                            ? "No se puede desactivar un super admin"
-                            : "Desactivar usuario"
-                        }
-                        aria-label="Desactivar usuario"
-                      >
-                        {deactivatingId === user.id ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <>
-                            <UserX className="size-4 sm:mr-1.5" />
-                            <span className="hidden sm:inline">Desactivar</span>
-                          </>
-                        )}
-                      </Button>
+                      {togglingId === user.id ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Switch
+                          checked={userToggleActive(user)}
+                          disabled={
+                            user.role === "super_admin" ||
+                            (user.role === "empleado" && !user.is_active)
+                          }
+                          onCheckedChange={(checked) => {
+                            void handleToggleActivo(user, checked);
+                          }}
+                          aria-label={
+                            user.role === "super_admin"
+                              ? "No se puede desactivar un super admin"
+                              : userToggleActive(user)
+                                ? "Desactivar usuario"
+                                : "Activar usuario"
+                          }
+                          title={
+                            user.role === "super_admin"
+                              ? "No se puede desactivar un super admin"
+                              : user.role === "empleado" && !user.is_active
+                                ? "Falta endpoint de reactivación de empleado"
+                                : user.role === "empresa"
+                                  ? "Suspende/reactiva la empresa vinculada"
+                                  : undefined
+                          }
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
