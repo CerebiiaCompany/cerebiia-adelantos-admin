@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatCOP, estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
-import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
+import { ESTADO_BADGE_CLASSES, cuotaCountBadgeClass } from "@/lib/adelanto-estado";
 import { getHistorialAdelantosAdmin } from "@/lib/api/admin";
 import { listarEmpresas } from "@/lib/api/empresas";
 import { ApiError } from "@/lib/api/errors";
@@ -11,8 +11,11 @@ import type {
   EstadoSolicitudApi,
   SolicitudHistorialAdminItem,
 } from "@/lib/api/types";
+import { DEFAULT_MAX_CUOTAS } from "@/lib/adelanto-calculo";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdelantosStat } from "@/components/admin/adelantos-filters-panel";
+import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 export const Route = createFileRoute("/admin/historial-adelantos")({
   head: () => ({ meta: [{ title: "Historial de adelantos — Panel" }] }),
@@ -39,15 +42,26 @@ const ESTADOS: EstadoSolicitudApi[] = [
 ];
 
 function HistorialAdelantosPage() {
+  const animationKey = useModuleAnimationKey();
+  const { numeroMaximoCuotas } = useAdelantoParametros();
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([]);
   const [empresaId, setEmpresaId] = useState("all");
   const [estado, setEstado] = useState<EstadoSolicitudApi | "all">("all");
+  const [cuotas, setCuotas] = useState<"all" | string>("all");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
+  const [busquedaInput, setBusquedaInput] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<HistorialAdelantosAdminResponse | null>(null);
+
+  const maxCuotas = Math.max(DEFAULT_MAX_CUOTAS, numeroMaximoCuotas || DEFAULT_MAX_CUOTAS);
+  const opcionesCuotas = useMemo(
+    () => Array.from({ length: maxCuotas }, (_, i) => i + 1),
+    [maxCuotas],
+  );
 
   useEffect(() => {
     void listarEmpresas()
@@ -55,15 +69,31 @@ function HistorialAdelantosPage() {
       .catch(() => setEmpresas([]));
   }, []);
 
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const next = busquedaInput.trim();
+      setBusqueda((prev) => {
+        if (prev === next) return prev;
+        setPage(1);
+        return next;
+      });
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [busquedaInput]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const numeroCuotas =
+        cuotas !== "all" && Number.isFinite(Number(cuotas)) ? Number(cuotas) : undefined;
       const res = await getHistorialAdelantosAdmin({
         empresa_id: empresaId !== "all" ? empresaId : undefined,
         estado: estado !== "all" ? estado : undefined,
         fecha_desde: fechaDesde ? `${fechaDesde}T00:00:00` : undefined,
         fecha_hasta: fechaHasta ? `${fechaHasta}T23:59:59` : undefined,
+        busqueda: busqueda || undefined,
+        numero_cuotas: numeroCuotas,
         page,
         page_size: 20,
       });
@@ -74,7 +104,7 @@ function HistorialAdelantosPage() {
     } finally {
       setLoading(false);
     }
-  }, [empresaId, estado, fechaDesde, fechaHasta, page]);
+  }, [empresaId, estado, cuotas, fechaDesde, fechaHasta, busqueda, page]);
 
   useEffect(() => {
     void load();
@@ -88,8 +118,11 @@ function HistorialAdelantosPage() {
   const clearFilters = () => {
     setEmpresaId("all");
     setEstado("all");
+    setCuotas("all");
     setFechaDesde("");
     setFechaHasta("");
+    setBusquedaInput("");
+    setBusqueda("");
     setPage(1);
   };
 
@@ -116,7 +149,20 @@ function HistorialAdelantosPage() {
         </p>
       )}
 
-      <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 p-4 sm:p-5">
+      <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 sm:gap-4 p-4 sm:p-5">
+        <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
+          <Label htmlFor="hist-busqueda">Buscar</Label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="hist-busqueda"
+              className="pl-9"
+              placeholder="Nombre o documento del empleado…"
+              value={busquedaInput}
+              onChange={(e) => setBusquedaInput(e.target.value)}
+            />
+          </div>
+        </div>
         <div className="space-y-1.5">
           <Label>Empresa</Label>
           <Select
@@ -162,6 +208,28 @@ function HistorialAdelantosPage() {
           </Select>
         </div>
         <div className="space-y-1.5">
+          <Label>Cuotas</Label>
+          <Select
+            value={cuotas}
+            onValueChange={(v) => {
+              setCuotas(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {opcionesCuotas.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n === 1 ? "1 cuota" : `${n} cuotas`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
           <Label htmlFor="hist-desde">Desde</Label>
           <Input
             id="hist-desde"
@@ -185,22 +253,54 @@ function HistorialAdelantosPage() {
             }}
           />
         </div>
-        <div className="flex items-end">
-          <Button type="button" variant="outline" className="h-10 w-full" onClick={clearFilters}>
+        <div className="flex items-end sm:col-span-2 xl:col-span-7">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full sm:w-auto"
+            onClick={clearFilters}
+          >
             Limpiar filtros
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        <AdelantosStat label="Total solicitudes" value={String(inds?.total_solicitudes ?? 0)} />
-        <AdelantosStat label="Pendientes" value={String(inds?.pendientes ?? 0)} />
-        <AdelantosStat label="Aprobadas" value={String(inds?.aprobadas ?? 0)} highlight />
-        <AdelantosStat label="Rechazadas" value={String(inds?.rechazadas ?? 0)} />
-        <AdelantosStat label="Pagadas" value={String(inds?.pagadas ?? 0)} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+        <AdelantosStat
+          label="Total solicitudes"
+          value={inds?.total_solicitudes ?? 0}
+          animationKey={animationKey}
+          delay={0}
+          loading={loading && !inds}
+        />
+        <AdelantosStat
+          label="Pendientes"
+          value={inds?.pendientes ?? 0}
+          animationKey={animationKey}
+          delay={60}
+          loading={loading && !inds}
+        />
+        <AdelantosStat
+          label="Rechazadas"
+          value={inds?.rechazadas ?? 0}
+          animationKey={animationKey}
+          delay={120}
+          loading={loading && !inds}
+        />
+        <AdelantosStat
+          label="Pagadas"
+          value={inds?.pagadas ?? 0}
+          animationKey={animationKey}
+          delay={180}
+          loading={loading && !inds}
+        />
         <AdelantosStat
           label="Monto procesado"
-          value={formatCOP(Number(inds?.monto_total_procesado) || 0)}
+          value={Number(inds?.monto_total_procesado) || 0}
+          format="currency"
+          animationKey={animationKey}
+          delay={240}
+          loading={loading && !inds}
         />
       </div>
 
@@ -285,7 +385,13 @@ function HistorialRow({ row }: { row: SolicitudHistorialAdminItem }) {
       <td className="text-right admin-table-cell-money tabular text-primary font-semibold">
         {formatCOP(Number(row.monto_neto) || 0)}
       </td>
-      <td className="text-center tabular">{row.numero_cuotas_snapshot}</td>
+      <td className="text-center">
+        <span
+          className={`inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-sm font-semibold tabular ${cuotaCountBadgeClass(row.numero_cuotas_snapshot)}`}
+        >
+          {row.numero_cuotas_snapshot}
+        </span>
+      </td>
       <td className="text-center">
         <span
           className={`inline-flex items-center text-sm font-medium rounded-md border px-2.5 py-1 ${ESTADO_BADGE_CLASSES[row.estado as EstadoAdelanto] ?? ""}`}

@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/api/errors";
 import type { AuditoriaAdminItem, AuditoriaIndicadoresApi } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -87,6 +89,7 @@ function toIsoDayEnd(date: string) {
 }
 
 function AuditoriasPage() {
+  const animationKey = useModuleAnimationKey();
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
@@ -154,7 +157,13 @@ function AuditoriasPage() {
           label="Total en listado"
           icon={ClipboardList}
           iconTone="trending"
-          value={loading ? "…" : String(count)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={count} animationKey={animationKey} delay={0} />
+            )
+          }
           sub="según filtros de fecha"
           accent
         />
@@ -162,28 +171,68 @@ function AuditoriasPage() {
           label="En revisión"
           icon={Eye}
           iconTone="wallet"
-          value={loading ? "…" : String(indicadores?.en_revision ?? 0)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={indicadores?.en_revision ?? 0}
+                animationKey={animationKey}
+                delay={60}
+              />
+            )
+          }
           sub="solicitudes actuales"
         />
         <AdminMetricCard
           label="Aprobaciones"
           icon={CheckCircle2}
           iconTone="success"
-          value={loading ? "…" : String(indicadores?.aprobadas ?? 0)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={indicadores?.aprobadas ?? 0}
+                animationKey={animationKey}
+                delay={120}
+              />
+            )
+          }
           sub="acciones auditadas"
         />
         <AdminMetricCard
           label="Rechazos"
           icon={XCircle}
           iconTone="default"
-          value={loading ? "…" : String(indicadores?.rechazadas ?? 0)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={indicadores?.rechazadas ?? 0}
+                animationKey={animationKey}
+                delay={180}
+              />
+            )
+          }
           sub="acciones auditadas"
         />
         <AdminMetricCard
           label="Pagos confirmados"
           icon={Banknote}
           iconTone="success"
-          value={loading ? "…" : String(indicadores?.pagos_confirmados ?? 0)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={indicadores?.pagos_confirmados ?? 0}
+                animationKey={animationKey}
+                delay={240}
+              />
+            )
+          }
           sub="solicitudes pagadas"
         />
       </section>

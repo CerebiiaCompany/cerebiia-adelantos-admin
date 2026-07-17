@@ -5,6 +5,7 @@ import {
   adjuntarDocumentoCobro,
   crearCuentaCobro,
   getControlPagos,
+  getControlPagosPeriodos,
   getReferenciaNomina,
   listCuentasCobro,
   rechazarEvidenciaCobro,
@@ -15,6 +16,7 @@ import { listarEmpresas } from "@/lib/api/empresas";
 import { ApiError } from "@/lib/api/errors";
 import type {
   ControlPagoEmpresaApi,
+  ControlPagosPeriodoApi,
   CuentaCobroApi,
   EmpresaListItem,
   EstadoCuentaCobroApi,
@@ -23,6 +25,8 @@ import { estadoCuentaCobroLabel, ESTADO_CUENTA_COBRO_CLASSES } from "@/lib/cuent
 import { exportReferenciaNominaExcel } from "@/lib/export-referencia-nomina-excel";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,26 +58,38 @@ const MESES = [
   "Diciembre",
 ];
 
-function periodOptions(yearsBack = 2) {
+function currentPeriodValue() {
   const now = new Date();
-  const options: { value: string; label: string; mes: number; anio: number }[] = [];
-  for (let y = now.getFullYear(); y >= now.getFullYear() - yearsBack; y--) {
-    const maxMes = y === now.getFullYear() ? now.getMonth() + 1 : 12;
-    for (let m = maxMes; m >= 1; m--) {
-      options.push({
-        value: `${y}-${String(m).padStart(2, "0")}`,
-        label: `${MESES[m - 1]} ${y}`,
-        mes: m,
-        anio: y,
-      });
-    }
-  }
-  return options;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function toPeriodOption(p: ControlPagosPeriodoApi) {
+  return {
+    value: p.periodo,
+    label: `${MESES[p.mes - 1]} ${p.anio}${p.es_actual ? " (actual)" : ""}`,
+    mes: p.mes,
+    anio: p.anio,
+  };
+}
+
+function fallbackCurrentPeriod() {
+  const now = new Date();
+  const mes = now.getMonth() + 1;
+  const anio = now.getFullYear();
+  return [
+    {
+      value: `${anio}-${String(mes).padStart(2, "0")}`,
+      label: `${MESES[mes - 1]} ${anio} (actual)`,
+      mes,
+      anio,
+    },
+  ];
 }
 
 function ControlPagosPage() {
-  const periodos = useMemo(() => periodOptions(), []);
-  const [periodo, setPeriodo] = useState(periodos[0]?.value ?? "");
+  const animationKey = useModuleAnimationKey();
+  const [periodos, setPeriodos] = useState(fallbackCurrentPeriod);
+  const [periodo, setPeriodo] = useState(currentPeriodValue);
   const [empresaId, setEmpresaId] = useState("all");
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([]);
   const [rows, setRows] = useState<ControlPagoEmpresaApi[]>([]);
@@ -99,6 +115,30 @@ function ControlPagosPage() {
       .then(setEmpresas)
       .catch(() => setEmpresas([]));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getControlPagosPeriodos({
+      empresa_id: empresaId !== "all" ? empresaId : undefined,
+    })
+      .then((data) => {
+        if (cancelled) return;
+        const opts = data.length > 0 ? data.map(toPeriodOption) : fallbackCurrentPeriod();
+        setPeriodos(opts);
+        setPeriodo((prev) =>
+          opts.some((o) => o.value === prev) ? prev : (opts[0]?.value ?? currentPeriodValue()),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const opts = fallbackCurrentPeriod();
+        setPeriodos(opts);
+        setPeriodo(opts[0]?.value ?? currentPeriodValue());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaId]);
 
   const load = useCallback(async () => {
     if (!selected) return;
@@ -137,11 +177,11 @@ function ControlPagosPage() {
         acc.cobrar += Number(r.total_a_cobrar) || 0;
         acc.pagado += Number(r.total_pagado) || 0;
         acc.comisiones += Number(r.comisiones_generadas) || 0;
-        acc.pendientes += r.solicitudes_pendientes;
-        acc.aprobadas += r.solicitudes_aprobadas;
+        acc.rechazadas += r.solicitudes_rechazadas;
+        acc.pagadas += r.solicitudes_pagadas;
         return acc;
       },
-      { cobrar: 0, pagado: 0, comisiones: 0, pendientes: 0, aprobadas: 0 },
+      { cobrar: 0, pagado: 0, comisiones: 0, rechazadas: 0, pagadas: 0 },
     );
   }, [rows]);
 
@@ -192,26 +232,19 @@ function ControlPagosPage() {
     }
   }
 
-  function onCrear(row: ControlPagoEmpresaApi) {
+  function onSubirCuentaCobro(row: ControlPagoEmpresaApi, file: File) {
     if (!selected) return;
-    void runAction(`crear:${row.empresa_id}`, async () => {
-      await crearCuentaCobro({
+    void runAction(`subir:${row.empresa_id}`, async () => {
+      const cuenta = await crearCuentaCobro({
         empresa_id: row.empresa_id,
         periodo: selected.value,
       });
-      // Al crear la cuenta, descarga el Excel de descuentos de nómina del periodo.
-      try {
-        const data = await getReferenciaNomina({
-          empresa_id: row.empresa_id,
-          periodo: selected.value,
-        });
-        if (data.detalle.length || data.resumen.length) {
-          exportReferenciaNominaExcel(data);
-        }
-      } catch {
-        // La cuenta ya se creó; el Excel es complementario.
-      }
+      await adjuntarDocumentoCobro(cuenta.id, file);
     });
+  }
+
+  function onSubirDocumentoExistente(cuentaId: string, file: File) {
+    void runAction(`doc:${cuentaId}`, () => adjuntarDocumentoCobro(cuentaId, file));
   }
 
   function onVerificar(cuenta: CuentaCobroApi) {
@@ -230,7 +263,7 @@ function ControlPagosPage() {
       <AdminPageHeader
         eyebrow="Operaciones"
         title="Control de pagos"
-        subtitle="Resumen mensual por empresa y cuentas de cobro. Al crear una cuenta se genera el Excel de referencia de nómina (multi-cuota) para que la empresa sepa cuánto descontar a cada empleado."
+        subtitle="Resumen mensual por empresa y cuentas de cobro. Sube el PDF de la cuenta de cobro y descarga el Excel de referencia de nómina (multi-cuota) para descuentos."
       />
 
       {error && (
@@ -244,7 +277,7 @@ function ControlPagosPage() {
           <Label>Periodo</Label>
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="h-10">
-              <SelectValue />
+              <SelectValue placeholder="Seleccionar periodo" />
             </SelectTrigger>
             <SelectContent>
               {periodos.map((p) => (
@@ -254,6 +287,9 @@ function ControlPagosPage() {
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Mes actual y meses con cuotas pendientes de cobro.
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label>Empresa</Label>
@@ -278,30 +314,73 @@ function ControlPagosPage() {
           label="Total a cobrar"
           icon={Landmark}
           iconTone="trending"
-          value={loading ? "…" : formatCOP(totals.cobrar)}
-          sub={selected?.label}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={totals.cobrar}
+                format="currency"
+                animationKey={animationKey}
+                delay={0}
+              />
+            )
+          }
+          sub="cuotas del periodo"
           accent
         />
         <AdminMetricCard
           label="Total pagado"
           icon={Banknote}
           iconTone="success"
-          value={loading ? "…" : formatCOP(totals.pagado)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={totals.pagado}
+                format="currency"
+                animationKey={animationKey}
+                delay={80}
+              />
+            )
+          }
           sub="adelantos desembolsados"
         />
         <AdminMetricCard
           label="Comisiones"
           icon={ListChecks}
           iconTone="wallet"
-          value={loading ? "…" : formatCOP(totals.comisiones)}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={totals.comisiones}
+                format="currency"
+                animationKey={animationKey}
+                delay={160}
+              />
+            )
+          }
           sub="generadas en el periodo"
         />
         <AdminMetricCard
           label="Solicitudes"
           icon={Building2}
           iconTone="default"
-          value={loading ? "…" : String(totals.pendientes + totals.aprobadas)}
-          sub={`${totals.pendientes} pend. · ${totals.aprobadas} aprob.`}
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={totals.rechazadas + totals.pagadas}
+                animationKey={animationKey}
+                delay={240}
+              />
+            )
+          }
+          sub={`${totals.rechazadas} rech. · ${totals.pagadas} pag.`}
         />
       </section>
 
@@ -319,8 +398,8 @@ function ControlPagosPage() {
               <tr>
                 <th className="admin-table-th text-left">Empresa</th>
                 <th className="admin-table-th text-left hidden md:table-cell">NIT</th>
-                <th className="admin-table-th text-right">Pendientes</th>
-                <th className="admin-table-th text-right">Aprobadas</th>
+                <th className="admin-table-th text-right">Rechazadas</th>
+                <th className="admin-table-th text-right">Pagadas</th>
                 <th className="admin-table-th text-right">Total pagado</th>
                 <th className="admin-table-th text-right">Comisiones</th>
                 <th className="admin-table-th text-right">A cobrar</th>
@@ -353,8 +432,8 @@ function ControlPagosPage() {
                     <td className="hidden md:table-cell tabular admin-table-cell-mono">
                       {row.empresa_nit}
                     </td>
-                    <td className="text-right tabular">{row.solicitudes_pendientes}</td>
-                    <td className="text-right tabular">{row.solicitudes_aprobadas}</td>
+                    <td className="text-right tabular">{row.solicitudes_rechazadas}</td>
+                    <td className="text-right tabular">{row.solicitudes_pagadas}</td>
                     <td className="text-right admin-table-cell-money tabular">
                       {formatCOP(Number(row.total_pagado) || 0)}
                     </td>
@@ -381,6 +460,7 @@ function ControlPagosPage() {
                           size="sm"
                           variant="outline"
                           disabled={!!busy}
+                          className="border-emerald-200/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:text-emerald-900"
                           title="Descargar Excel de descuentos de nómina del periodo"
                           onClick={() =>
                             void descargarReferenciaNomina(row.empresa_id, row.empresa_nombre)
@@ -395,19 +475,42 @@ function ControlPagosPage() {
                             </>
                           )}
                         </Button>
-                        {!cuenta && Number(row.total_pagado) > 0 && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={!!busy}
-                            onClick={() => onCrear(row)}
-                          >
-                            {actionKey === `crear:${row.empresa_id}` ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              "Crear cuenta"
-                            )}
-                          </Button>
+                        {!cuenta && Number(row.total_a_cobrar) > 0 && (
+                          <>
+                            <input
+                              ref={(el) => {
+                                docInputRefs.current[`new:${row.empresa_id}`] = el;
+                              }}
+                              type="file"
+                              className="hidden"
+                              accept="application/pdf,.pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (!file) return;
+                                void onSubirCuentaCobro(row, file);
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={!!busy}
+                              title="Subir PDF de la cuenta de cobro"
+                              onClick={() =>
+                                docInputRefs.current[`new:${row.empresa_id}`]?.click()
+                              }
+                            >
+                              {actionKey === `subir:${row.empresa_id}` ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <FileUp className="size-3.5 sm:mr-1.5" />
+                                  <span className="hidden sm:inline">Subir cuenta de cobro</span>
+                                  <span className="sm:hidden">Subir PDF</span>
+                                </>
+                              )}
+                            </Button>
+                          </>
                         )}
                         {cuenta?.estado === "borrador" && (
                           <>
@@ -417,24 +520,30 @@ function ControlPagosPage() {
                               }}
                               type="file"
                               className="hidden"
-                              accept=".pdf,.png,.jpg,.jpeg,.webp"
+                              accept="application/pdf,.pdf"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 e.target.value = "";
                                 if (!file) return;
-                                void runAction(`doc:${cuenta.id}`, () =>
-                                  adjuntarDocumentoCobro(cuenta.id, file),
-                                );
+                                onSubirDocumentoExistente(cuenta.id, file);
                               }}
                             />
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="secondary"
                               disabled={!!busy}
+                              title="Subir PDF de la cuenta de cobro"
                               onClick={() => docInputRefs.current[cuenta.id]?.click()}
                             >
-                              <FileUp className="size-3.5" />
-                              Documento
+                              {actionKey === `doc:${cuenta.id}` ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <FileUp className="size-3.5 sm:mr-1.5" />
+                                  <span className="hidden sm:inline">Subir cuenta de cobro</span>
+                                  <span className="sm:hidden">Subir PDF</span>
+                                </>
+                              )}
                             </Button>
                           </>
                         )}
@@ -461,10 +570,12 @@ function ControlPagosPage() {
                                 size="sm"
                                 variant="outline"
                                 disabled={!!busy}
+                                title="Subir el PDF de la cuenta de cobro para que la empresa pague"
                                 onClick={() => evInputRefs.current[cuenta.id]?.click()}
                               >
-                                <FileUp className="size-3.5" />
-                                Evidencia
+                                <FileUp className="size-3.5 sm:mr-1.5" />
+                                <span className="hidden sm:inline">Subir cuenta de cobro</span>
+                                <span className="sm:hidden">Subir cuenta</span>
                               </Button>
                             </>
                           )}
@@ -560,10 +671,10 @@ function ControlPagosPage() {
                             rel="noreferrer"
                             className="text-primary underline-offset-2 hover:underline"
                           >
-                            Evidencia
+                            Cuenta de cobro
                           </a>
                         ) : (
-                          <span className="text-muted-foreground">Sin evidencia</span>
+                          <span className="text-muted-foreground">Sin cuenta de cobro</span>
                         )}
                       </div>
                     </td>

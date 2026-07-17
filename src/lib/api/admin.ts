@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import type {
   AuditoriaIndicadoresApi,
   ControlPagoEmpresaApi,
+  ControlPagosPeriodoApi,
   CrearCuentaCobroPayload,
   CuentaCobroApi,
   HistorialAdelantosAdminResponse,
@@ -30,6 +31,16 @@ export function getControlPagos(params: ListControlPagosParams) {
       mes: params.mes,
       anio: params.anio,
       empresa_id: params.empresa_id,
+    })}`,
+    { auth: true },
+  );
+}
+
+/** Mes actual + meses con cuotas pendientes de cobro. */
+export function getControlPagosPeriodos(params?: { empresa_id?: string }) {
+  return apiRequest<ControlPagosPeriodoApi[]>(
+    `/admin/control-pagos/periodos/${buildQuery({
+      empresa_id: params?.empresa_id,
     })}`,
     { auth: true },
   );

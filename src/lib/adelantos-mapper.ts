@@ -71,6 +71,9 @@ export function solicitudListItemToAdelanto(s: SolicitudAdminListItem): Adelanto
       numero: s.numero_cuenta?.trim() || "—",
     },
     {
+      motivoRechazo: s.motivo_rechazo ?? undefined,
+      fechaRechazo:
+        s.estado === "rechazado" ? (s.decidido_en ?? undefined) : undefined,
       comprobanteUrl: resolveComprobanteUrl(s.comprobante_pago_url),
       fechaPago: s.pagado_en ?? undefined,
     },

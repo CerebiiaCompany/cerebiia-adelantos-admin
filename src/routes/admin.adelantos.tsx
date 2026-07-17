@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdmin, formatCOP, estadoLabel, type Adelanto, type EstadoAdelanto } from "@/lib/admin-store";
-import { ESTADO_BADGE_CLASSES } from "@/lib/adelanto-estado";
+import { ESTADO_BADGE_CLASSES, cuotaCountBadgeClass } from "@/lib/adelanto-estado";
 import { useAdelantosFilters } from "@/lib/adelantos-filters";
 import { exportAdelantosExcel } from "@/lib/export-adelantos-excel";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
@@ -17,15 +17,18 @@ import {
   syncRechazarSolicitud,
   syncSubirComprobante,
 } from "@/lib/adelantos-api-sync";
+import { getSolicitudAdmin } from "@/lib/api/adelantos";
 import { ApiError } from "@/lib/api/errors";
 import { isBackendUuid } from "@/lib/api/is-api-id";
 import type { CuotaAdelantoApi } from "@/lib/api/types";
 import type { ListSolicitudesAdminParams } from "@/lib/api/types";
 import type { DesgloseAdelanto } from "@/lib/adelanto-calculo";
-import { esPagoACuotas } from "@/lib/adelanto-calculo";
+import { modoPagoLabel } from "@/lib/adelanto-calculo";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { AdelantosFiltersPanel } from "@/components/admin/adelantos-filters-panel";
+import { AdelantosFiltersPanel, AdelantosStat } from "@/components/admin/adelantos-filters-panel";
+import { AnimatedNumber } from "@/components/admin/animated-number";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { SolicitudDetalleDrawer } from "@/components/admin/solicitud-detalle-drawer";
 import { ComprobanteDialog } from "@/components/admin/comprobante-dialog";
 import { Button } from "@/components/ui/button";
@@ -79,6 +82,7 @@ export const Route = createFileRoute("/admin/adelantos")({
 const ESTADO_COLORS = ESTADO_BADGE_CLASSES;
 
 function AdelantosPage() {
+  const animationKey = useModuleAnimationKey();
   const { updateAdelantoEstado, rechazarAdelanto, marcarPagado } = useAdmin();
   const { calcular } = useAdelantoParametros();
   const [viewing, setViewing] = useState<Adelanto | null>(null);
@@ -175,12 +179,18 @@ function AdelantosPage() {
 
   /** Abre confirmación antes de cambiar estado (evita cambios accidentales). */
   const requestEstadoChange = (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
-    if (adelanto.estado === "pagado" || adelanto.estado === nuevoEstado) return;
+    if (
+      adelanto.estado === "pagado" ||
+      adelanto.estado === "rechazado" ||
+      adelanto.estado === nuevoEstado
+    ) {
+      return;
+    }
     setPendingEstado({ adelanto, nuevoEstado });
   };
 
   const applyEstadoChange = async (adelanto: Adelanto, nuevoEstado: EstadoAdelanto) => {
-    if (adelanto.estado === "pagado") return;
+    if (adelanto.estado === "pagado" || adelanto.estado === "rechazado") return;
     if (nuevoEstado === "rechazado" && adelanto.estado !== "rechazado") {
       setRejecting(adelanto);
       return;
@@ -306,6 +316,19 @@ function AdelantosPage() {
     [adelantos],
   );
 
+  const moduleStats = useMemo(() => {
+    const enRevision = adelantos.filter((a) => a.estado === "en_revision").length;
+    const aprobados = adelantos.filter((a) => a.estado === "aprobado").length;
+    const montoPagina = adelantos.reduce((sum, a) => sum + (Number(a.monto) || 0), 0);
+    return {
+      total: count,
+      pendientes: pendientesSolicitados.length,
+      enRevision,
+      aprobados,
+      montoPagina,
+    };
+  }, [adelantos, count, pendientesSolicitados.length]);
+
   return (
     <div className="admin-page">
       <AdminPageHeader
@@ -347,67 +370,107 @@ function AdelantosPage() {
         </p>
       )}
 
-      <div className="admin-panel-card-flush border border-info/25">
-        <div className="admin-card-toolbar bg-info/[0.06]">
-          <div className="flex items-center gap-2 min-w-0">
-            <Inbox className="size-5 shrink-0 text-info" strokeWidth={2} />
-            <div className="min-w-0">
-              <h2 className="admin-section-title">Pendientes por responder</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
-                Solicitudes nuevas en orden de llegada — la más antigua primero.
-              </p>
-            </div>
-          </div>
-          <span className="text-sm font-medium text-info tabular shrink-0">
-            {pendientesSolicitados.length} en cola
-          </span>
-        </div>
-        <div className="admin-table-scroll">
-          <table className="admin-table">
-            <thead className="admin-table-head">
-              <tr>
-                <th className="admin-table-th text-center w-12">#</th>
-                <th className="admin-table-th text-left">Empleado</th>
-                <th className="admin-table-th text-left hidden md:table-cell">Empresa</th>
-                <th className="admin-table-th text-left">Fecha</th>
-                <th className="admin-table-th text-right">Monto solicitado</th>
-                <th className="admin-table-th text-right">Total a recibir</th>
-                <th className="admin-table-th text-center">Cuotas</th>
-                <th className="admin-table-th text-right">Valor cuota</th>
-                <th className="admin-table-th text-right hidden sm:table-cell">Comisión</th>
-                <th className="admin-table-th text-center">Estado</th>
-                <th className="admin-table-th text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {pendientesSolicitados.map((a, index) => {
-                const e = empresas.find((x) => x.id === a.empresaId);
-                const empresaNombre = a.empresaNombre ?? e?.nombre;
-                return (
-                  <AdelantoRow
-                    key={a.id}
-                    adelanto={a}
-                    empresaNombre={empresaNombre}
-                    queueIndex={index + 1}
-                    showQueue
-                    showFecha
-                    desglose={calcular(a.monto, a.numeroCuotas)}
-                    onViewDetalle={() => setDetalleId(a.id)}
-                    onEstadoChange={(v) => requestEstadoChange(a, v)}
-                  />
-                );
-              })}
-              {pendientesSolicitados.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="admin-table-empty py-8">
-                    No hay solicitudes nuevas pendientes de respuesta.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+        <AdelantosStat
+          label="Total filtrado"
+          value={moduleStats.total}
+          animationKey={animationKey}
+          delay={0}
+          loading={loadingList && count === 0}
+        />
+        <AdelantosStat
+          label="Pendientes"
+          value={moduleStats.pendientes}
+          animationKey={animationKey}
+          delay={60}
+          loading={loadingList && adelantos.length === 0}
+          highlight
+        />
+        <AdelantosStat
+          label="En revisión"
+          value={moduleStats.enRevision}
+          animationKey={animationKey}
+          delay={120}
+          loading={loadingList && adelantos.length === 0}
+        />
+        <AdelantosStat
+          label="Aprobados"
+          value={moduleStats.aprobados}
+          animationKey={animationKey}
+          delay={180}
+          loading={loadingList && adelantos.length === 0}
+        />
+        <AdelantosStat
+          label="Monto en página"
+          value={moduleStats.montoPagina}
+          format="currency"
+          animationKey={animationKey}
+          delay={240}
+          loading={loadingList && adelantos.length === 0}
+        />
       </div>
+
+      {pendientesSolicitados.length > 0 && (
+        <div className="admin-panel-card-flush border border-info/25">
+          <div className="admin-card-toolbar bg-info/[0.06]">
+            <div className="flex items-center gap-2 min-w-0">
+              <Inbox className="size-5 shrink-0 text-info" strokeWidth={2} />
+              <div className="min-w-0">
+                <h2 className="admin-section-title">Pendientes por responder</h2>
+                <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
+                  Solicitudes nuevas en orden de llegada — la más antigua primero.
+                </p>
+              </div>
+            </div>
+            <span className="text-sm font-medium text-info tabular shrink-0">
+              <AnimatedNumber
+                value={pendientesSolicitados.length}
+                animationKey={animationKey}
+                delay={100}
+              />{" "}
+              en cola
+            </span>
+          </div>
+          <div className="admin-table-scroll">
+            <table className="admin-table">
+              <thead className="admin-table-head">
+                <tr>
+                  <th className="admin-table-th text-center w-12">#</th>
+                  <th className="admin-table-th text-left">Empleado</th>
+                  <th className="admin-table-th text-left hidden md:table-cell">Empresa</th>
+                  <th className="admin-table-th text-left">Fecha</th>
+                  <th className="admin-table-th text-right">Monto solicitado</th>
+                  <th className="admin-table-th text-right">Total a recibir</th>
+                  <th className="admin-table-th text-center">Cuotas</th>
+                  <th className="admin-table-th text-right">Valor cuota</th>
+                  <th className="admin-table-th text-right hidden sm:table-cell">Comisión</th>
+                  <th className="admin-table-th text-center">Estado</th>
+                  <th className="admin-table-th text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pendientesSolicitados.map((a, index) => {
+                  const e = empresas.find((x) => x.id === a.empresaId);
+                  const empresaNombre = a.empresaNombre ?? e?.nombre;
+                  return (
+                    <AdelantoRow
+                      key={a.id}
+                      adelanto={a}
+                      empresaNombre={empresaNombre}
+                      queueIndex={index + 1}
+                      showQueue
+                      showFecha
+                      desglose={calcular(a.monto, a.numeroCuotas)}
+                      onViewDetalle={() => setDetalleId(a.id)}
+                      onEstadoChange={(v) => requestEstadoChange(a, v)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <AdelantosFiltersPanel
         months={months}
@@ -581,21 +644,19 @@ type AdelantoRowProps = {
 };
 
 function AdelantoCuotasCells({ desglose }: { desglose: DesgloseAdelanto }) {
-  const aCuotas = esPagoACuotas(desglose.numeroCuotas);
-
   return (
     <>
       <td className="text-center">
         <span
           className={cn(
             "inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-sm font-semibold tabular",
-            aCuotas ? "bg-warning/15 text-warning" : "bg-success/15 text-success",
+            cuotaCountBadgeClass(desglose.numeroCuotas),
           )}
         >
           {desglose.numeroCuotas}
         </span>
         <p className="admin-table-cell-note sm:hidden mt-1 tabular">
-          {aCuotas ? "A cuotas" : "Pago único"}
+          {modoPagoLabel(desglose.numeroCuotas)}
         </p>
       </td>
       <td className="text-right">
@@ -635,13 +696,7 @@ function AdelantoRow({
   onViewComprobante,
 }: AdelantoRowProps) {
   return (
-    <tr
-      className={cn(
-        "hover:bg-muted/30",
-        esPagoACuotas(desglose.numeroCuotas) && "bg-warning/[0.05]",
-        !esPagoACuotas(desglose.numeroCuotas) && "bg-success/[0.03]",
-      )}
-    >
+    <tr className="hover:bg-muted/30">
       {showQueue && (
         <td className="text-center">
           <span className="inline-flex size-8 items-center justify-center rounded-lg bg-info/10 text-sm font-semibold text-info tabular">
@@ -778,10 +833,17 @@ function EstadoSelect({
   /** Si se define, solo muestra esos estados en el menú (p. ej. tabla En gestión). */
   allowedEstados?: EstadoAdelanto[];
 }) {
-  if (value === "pagado") {
+  if (value === "pagado" || value === "rechazado") {
     return (
-      <div className="flex justify-center" title="El estado Pagado no se puede modificar">
-        <EstadoBadge estado="pagado" />
+      <div
+        className="flex justify-center"
+        title={
+          value === "pagado"
+            ? "El estado Pagado no se puede modificar"
+            : "El estado Rechazado no se puede modificar"
+        }
+      >
+        <EstadoBadge estado={value} />
       </div>
     );
   }
@@ -1051,6 +1113,59 @@ function MotivoRechazoDialog({
   empresa?: string;
   onClose: () => void;
 }) {
+  const [motivo, setMotivo] = useState<string | null>(null);
+  const [fechaRechazo, setFechaRechazo] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!adelanto) {
+      setMotivo(null);
+      setFechaRechazo(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // Fallback inmediato con lo que traiga el listado.
+    setMotivo(adelanto.motivoRechazo?.trim() || null);
+    setFechaRechazo(adelanto.fechaRechazo ?? null);
+    setError(null);
+
+    if (!isBackendUuid(adelanto.id)) return;
+
+    let cancelled = false;
+    setLoading(true);
+    void getSolicitudAdmin(adelanto.id)
+      .then((detalle) => {
+        if (cancelled) return;
+        const nota = detalle.motivo_rechazo?.trim() || null;
+        setMotivo(nota);
+        // El detalle admin no trae decidido_en; conservar fecha del listado si existe.
+        if (!nota) {
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Si el listado ya tenía motivo, no bloquear la vista.
+        if (!adelanto.motivoRechazo?.trim()) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "No se pudo cargar el motivo de rechazo.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adelanto]);
+
   return (
     <Dialog open={!!adelanto} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
@@ -1065,18 +1180,31 @@ function MotivoRechazoDialog({
                 CC {adelanto.empleadoCedula}
                 {empresa ? ` · ${empresa}` : ""}
               </div>
-              {adelanto.fechaRechazo && (
+              {fechaRechazo && (
                 <div className="text-xs text-muted-foreground mt-2 tabular">
                   Rechazado el{" "}
-                  {new Date(adelanto.fechaRechazo).toLocaleString("es-CO", {
+                  {new Date(fechaRechazo).toLocaleString("es-CO", {
                     dateStyle: "medium",
                     timeStyle: "short",
                   })}
                 </div>
               )}
             </div>
-            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-              <p className="text-sm text-foreground whitespace-pre-wrap">{adelanto.motivoRechazo}</p>
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 min-h-12">
+              {loading && !motivo ? (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Cargando motivo…
+                </p>
+              ) : error && !motivo ? (
+                <p className="text-sm text-destructive">{error}</p>
+              ) : motivo ? (
+                <p className="text-sm text-foreground whitespace-pre-wrap">{motivo}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No hay un motivo registrado para este rechazo.
+                </p>
+              )}
             </div>
           </div>
         )}

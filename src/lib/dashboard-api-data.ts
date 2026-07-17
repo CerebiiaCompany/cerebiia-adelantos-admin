@@ -17,18 +17,36 @@ const MESES_CORTOS = [
   "dic",
 ];
 
+function money(value: string | number | undefined | null): number {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function dashboardToMonthlyTrend(data: DashboardAdelantosApi): MonthlyTrendPoint[] {
-  return data.monto_solicitado_por_mes.map((m) => ({
-    key: `${m.anio}-${String(m.mes).padStart(2, "0")}`,
-    label: MESES_CORTOS[m.mes - 1] ?? String(m.mes),
-    total: Number(m.monto_total),
-    cantidad: m.total,
-    pagado: 0,
-    aprobado: 0,
-    en_revision: 0,
-    solicitado: Number(m.monto_total),
-    rechazado: 0,
-  }));
+  return data.monto_solicitado_por_mes.map((m) => {
+    const pagado = money(m.monto_pagado);
+    const aprobado = money(m.monto_aprobado);
+    const enRevision = money(m.monto_en_revision);
+    const solicitado = money(m.monto_solicitado);
+    const rechazado = money(m.monto_rechazado);
+    const porEstado = pagado + aprobado + enRevision + solicitado + rechazado;
+    const total = money(m.monto_total);
+
+    // Compatibilidad: APIs antiguas solo envían monto_total → se asigna a solicitado.
+    const sinDesglose = porEstado === 0 && total > 0;
+
+    return {
+      key: `${m.anio}-${String(m.mes).padStart(2, "0")}`,
+      label: MESES_CORTOS[m.mes - 1] ?? String(m.mes),
+      total,
+      cantidad: m.total,
+      pagado,
+      aprobado,
+      en_revision: enRevision,
+      solicitado: sinDesglose ? total : solicitado,
+      rechazado,
+    };
+  });
 }
 
 export function adelantosToEmpresaBars(adelantos: Adelanto[]) {

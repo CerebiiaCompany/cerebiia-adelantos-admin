@@ -7,6 +7,9 @@ import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Eye, EyeOff, Info } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Info, Users, UserCheck, UserX, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -117,6 +120,7 @@ function UsuariosPage() {
 }
 
 function EmpleadosNominaSection() {
+  const animationKey = useModuleAnimationKey();
   const [empleados, setEmpleados] = useState<EmpleadoAdminApi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,11 +207,57 @@ function EmpleadosNominaSection() {
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-muted-foreground">
-        {counts.total} empleados · {counts.activos} activos · {counts.pendientes} pendientes ·{" "}
-        {counts.suspendidos} suspendidos
-        {filtered.length !== empleados.length ? ` · mostrando ${filtered.length}` : ""}
-      </p>
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+        <AdminMetricCard
+          label="Total empleados"
+          icon={Users}
+          iconTone="building"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={counts.total} animationKey={animationKey} delay={0} />
+            )
+          }
+          accent
+        />
+        <AdminMetricCard
+          label="Activos"
+          icon={UserCheck}
+          iconTone="success"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={counts.activos} animationKey={animationKey} delay={80} />
+            )
+          }
+        />
+        <AdminMetricCard
+          label="Pendientes"
+          icon={Clock}
+          iconTone="wallet"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={counts.pendientes} animationKey={animationKey} delay={160} />
+            )
+          }
+        />
+        <AdminMetricCard
+          label="Suspendidos"
+          icon={UserX}
+          iconTone="default"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={counts.suspendidos} animationKey={animationKey} delay={240} />
+            )
+          }
+        />
+      </section>
 
       <div className="admin-panel-card-flush">
         {loading ? (
@@ -370,6 +420,7 @@ function EmpleadosNominaSection() {
 }
 
 function AccesosSection() {
+  const animationKey = useModuleAnimationKey();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -605,9 +656,37 @@ function AccesosSection() {
         </p>
       )}
 
-      <p className="mb-4 text-sm text-muted-foreground">
-        {users.length} en el sistema · {users.filter((u) => userToggleActive(u)).length} activos
-      </p>
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+        <AdminMetricCard
+          label="Cuentas en el sistema"
+          icon={Users}
+          iconTone="building"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={users.length} animationKey={animationKey} delay={0} />
+            )
+          }
+          accent
+        />
+        <AdminMetricCard
+          label="Cuentas activas"
+          icon={UserCheck}
+          iconTone="success"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber
+                value={users.filter((u) => userToggleActive(u)).length}
+                animationKey={animationKey}
+                delay={80}
+              />
+            )
+          }
+        />
+      </section>
 
       <div className="admin-panel-card-flush">
         {loading ? (

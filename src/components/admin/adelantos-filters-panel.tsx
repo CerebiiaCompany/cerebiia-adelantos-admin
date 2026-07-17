@@ -1,6 +1,7 @@
 import { formatCOP, estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
 import { monthLabel } from "@/lib/adelantos-filters";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Eraser, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -192,13 +193,38 @@ export function AdelantosFiltersPanel({
 export function AdelantosStat({
   label,
   value,
+  format = "number",
   highlight,
+  animationKey = 0,
+  delay = 0,
+  loading,
 }: {
   label: string;
-  value: string;
+  value: number;
+  format?: "number" | "currency";
   highlight?: boolean;
+  animationKey?: number;
+  delay?: number;
+  loading?: boolean;
 }) {
-  return <AdminMetricCard label={label} value={value} accent={highlight} />;
+  return (
+    <AdminMetricCard
+      label={label}
+      accent={highlight}
+      value={
+        loading ? (
+          "…"
+        ) : (
+          <AnimatedNumber
+            value={value}
+            format={format}
+            animationKey={animationKey}
+            delay={delay}
+          />
+        )
+      }
+    />
+  );
 }
 
 export function AdelantosPorEmpresa({

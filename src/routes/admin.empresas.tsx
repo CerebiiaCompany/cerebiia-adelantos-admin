@@ -20,7 +20,10 @@ import {
   type NominaEmpleado,
 } from "@/lib/nomina-mapper";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
 import { EmpresaNominaDialog } from "@/components/admin/empresa-nomina-dialog";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +37,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Building2, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
+import { Plus, Building2, Eye, EyeOff, Loader2, Pencil, Users, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/empresas")({
   head: () => ({ meta: [{ title: "Empresas — Panel" }] }),
@@ -56,6 +59,7 @@ const emptyForm = {
 };
 
 function EmpresasPage() {
+  const animationKey = useModuleAnimationKey();
   const { data: empleadosMetricas } = useEmpleadosMetricas();
   const [rows, setRows] = useState<EmpresaRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,11 +244,7 @@ function EmpresasPage() {
       <AdminPageHeader
         eyebrow="Catálogo"
         title="Empresas"
-        subtitle={`${rows.length} registradas · ${activas} activas${
-          empleadosMetricas
-            ? ` · ${empleadosMetricas.activos} empleados activos (${empleadosMetricas.total_empleados} total)`
-            : ""
-        }`}
+        subtitle="Registro de empresas, administradores y métricas de nómina."
         aside={
           <Dialog
             open={open}
@@ -381,6 +381,58 @@ function EmpresasPage() {
           </Dialog>
         }
       />
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <AdminMetricCard
+          label="Empresas registradas"
+          icon={Building2}
+          iconTone="building"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={rows.length} animationKey={animationKey} delay={0} />
+            )
+          }
+          accent
+        />
+        <AdminMetricCard
+          label="Empresas activas"
+          icon={CheckCircle2}
+          iconTone="success"
+          value={
+            loading ? (
+              "…"
+            ) : (
+              <AnimatedNumber value={activas} animationKey={animationKey} delay={80} />
+            )
+          }
+        />
+        <AdminMetricCard
+          label="Empleados activos"
+          icon={Users}
+          iconTone="wallet"
+          value={
+            <AnimatedNumber
+              value={empleadosMetricas?.activos ?? 0}
+              animationKey={animationKey}
+              delay={160}
+            />
+          }
+        />
+        <AdminMetricCard
+          label="Empleados totales"
+          icon={Users}
+          iconTone="trending"
+          value={
+            <AnimatedNumber
+              value={empleadosMetricas?.total_empleados ?? 0}
+              animationKey={animationKey}
+              delay={240}
+            />
+          }
+        />
+      </section>
 
       {loadError && (
         <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">

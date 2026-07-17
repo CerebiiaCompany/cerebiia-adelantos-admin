@@ -82,6 +82,30 @@ type DashboardChartsProps = {
   className?: string;
 };
 
+const ESTADO_KEYS = [
+  "pagado",
+  "aprobado",
+  "en_revision",
+  "solicitado",
+  "rechazado",
+] as const;
+
+type EstadoKey = (typeof ESTADO_KEYS)[number];
+
+const ESTADO_BAR_STYLE: Record<
+  EstadoKey,
+  { fill: string; radius?: [number, number, number, number] }
+> = {
+  pagado: { fill: "hsl(var(--chart-5))" },
+  aprobado: { fill: "hsl(var(--chart-4))" },
+  en_revision: { fill: "hsl(var(--chart-2))" },
+  solicitado: { fill: "hsl(var(--chart-1))" },
+  rechazado: {
+    fill: "hsl(var(--muted-foreground) / 0.45)",
+    radius: [6, 6, 0, 0],
+  },
+};
+
 export function DashboardTrendChart({
   adelantos,
   trendData,
@@ -97,13 +121,27 @@ export function DashboardTrendChart({
   );
   const peak = useMemo(() => Math.max(...data.map((d) => d.total), 1), [data]);
 
+  const activeEstados = useMemo(() => {
+    return ESTADO_KEYS.filter((key) => data.some((d) => Number(d[key]) > 0));
+  }, [data]);
+
+  const chartConfig = useMemo(() => {
+    const next: ChartConfig = {
+      cantidad: trendConfig.cantidad,
+    };
+    for (const key of activeEstados) {
+      next[key] = trendConfig[key];
+    }
+    return next;
+  }, [activeEstados]);
+
   return (
     <div className={cn("admin-panel-card", className)}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-6">
         <div>
           <h2 className="admin-section-title text-lg">Evolución de adelantos</h2>
           <p className="admin-section-subtitle text-base mt-1">
-            Monto y solicitudes de los últimos 6 meses.
+            Monto por estado y cantidad de solicitudes.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
@@ -119,7 +157,7 @@ export function DashboardTrendChart({
         </div>
       </div>
 
-      <ChartContainer config={trendConfig} className="h-[240px] sm:h-[280px] lg:h-[300px] w-full aspect-auto">
+      <ChartContainer config={chartConfig} className="h-[240px] sm:h-[280px] lg:h-[300px] w-full aspect-auto">
         <ComposedChart
           key={animationKey}
           data={data}
@@ -159,68 +197,59 @@ export function DashboardTrendChart({
 
           <ChartTooltip
             cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1, strokeDasharray: "4 4" }}
-            content={
-              <ChartTooltipContent
-                labelFormatter={(_, payload) => {
-                  const row = payload?.[0]?.payload as { label: string; cantidad: number } | undefined;
-                  if (!row) return null;
-                  return (
-                    <span className="font-display font-semibold capitalize">
-                      {row.label} · {row.cantidad} solicitud{row.cantidad === 1 ? "" : "es"}
-                    </span>
-                  );
-                }}
-                formatter={(value, name) => {
-                  if (name === "cantidad") return [value, "Solicitudes"];
-                  return [formatCOP(Number(value)), trendConfig[name as keyof typeof trendConfig]?.label ?? name];
-                }}
-              />
-            }
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const filtered = payload.filter((item) => {
+                if (item.dataKey === "cantidad") return true;
+                return Number(item.value) > 0;
+              });
+              if (!filtered.length) return null;
+              return (
+                <ChartTooltipContent
+                  active={active}
+                  payload={filtered}
+                  label={label}
+                  labelFormatter={(_, tipPayload) => {
+                    const row = tipPayload?.[0]?.payload as
+                      | { label: string; cantidad: number }
+                      | undefined;
+                    if (!row) return null;
+                    return (
+                      <span className="font-display font-semibold capitalize">
+                        {row.label} · {row.cantidad} solicitud{row.cantidad === 1 ? "" : "es"}
+                      </span>
+                    );
+                  }}
+                  formatter={(value, name) => {
+                    if (name === "cantidad") return [value, "Solicitudes"];
+                    return [
+                      formatCOP(Number(value)),
+                      trendConfig[name as keyof typeof trendConfig]?.label ?? name,
+                    ];
+                  }}
+                />
+              );
+            }}
           />
 
           <ChartLegend content={<ChartLegendContent className="flex-wrap gap-x-3 gap-y-2 justify-start sm:justify-center" />} />
 
-          <Bar
-            yAxisId="monto"
-            dataKey="pagado"
-            stackId="estado"
-            fill="hsl(var(--chart-5))"
-            maxBarSize={32}
-            isAnimationActive
-          />
-          <Bar
-            yAxisId="monto"
-            dataKey="aprobado"
-            stackId="estado"
-            fill="hsl(var(--chart-4))"
-            maxBarSize={32}
-            isAnimationActive
-          />
-          <Bar
-            yAxisId="monto"
-            dataKey="en_revision"
-            stackId="estado"
-            fill="hsl(var(--chart-2))"
-            maxBarSize={32}
-            isAnimationActive
-          />
-          <Bar
-            yAxisId="monto"
-            dataKey="solicitado"
-            stackId="estado"
-            fill="hsl(var(--chart-1))"
-            maxBarSize={32}
-            isAnimationActive
-          />
-          <Bar
-            yAxisId="monto"
-            dataKey="rechazado"
-            stackId="estado"
-            fill="hsl(var(--muted-foreground) / 0.45)"
-            radius={[6, 6, 0, 0]}
-            maxBarSize={32}
-            isAnimationActive
-          />
+          {activeEstados.map((key, index) => {
+            const style = ESTADO_BAR_STYLE[key];
+            const isTop = index === activeEstados.length - 1;
+            return (
+              <Bar
+                key={key}
+                yAxisId="monto"
+                dataKey={key}
+                stackId="estado"
+                fill={style.fill}
+                radius={isTop ? (style.radius ?? [6, 6, 0, 0]) : undefined}
+                maxBarSize={32}
+                isAnimationActive
+              />
+            );
+          })}
 
           <Line
             yAxisId="cantidad"

@@ -109,18 +109,26 @@ export type ListUsersParams = {
   role?: UserRole;
 };
 
-/** `GET /admin/control-pagos/?mes=&anio=` */
+/** `GET /admin/control-pagos/?mes=&anio=` — total_a_cobrar = cuotas del periodo. */
 export interface ControlPagoEmpresaApi {
   empresa_id: string;
   empresa_nombre: string;
   empresa_nit: string;
-  solicitudes_pendientes: number;
-  solicitudes_aprobadas: number;
+  solicitudes_rechazadas: number;
+  solicitudes_pagadas: number;
   total_pagado: string;
   comisiones_generadas: string;
   total_a_cobrar: string;
   cuenta_cobro_id?: string | null;
   cuenta_cobro_estado?: string | null;
+}
+
+/** `GET /admin/control-pagos/periodos/?empresa_id=` */
+export interface ControlPagosPeriodoApi {
+  periodo: string;
+  anio: number;
+  mes: number;
+  es_actual: boolean;
 }
 
 export type EstadoCuentaCobroApi =
@@ -312,6 +320,10 @@ export type ListHistorialAdelantosParams = {
   estado?: EstadoSolicitudApi;
   fecha_desde?: string;
   fecha_hasta?: string;
+  /** Nombre o documento del empleado (icontains). */
+  busqueda?: string;
+  /** Filtra por `numero_cuotas_snapshot` exacto (1, 2, 3…). */
+  numero_cuotas?: number;
   page?: number;
   page_size?: number;
 };
@@ -390,6 +402,7 @@ export interface SolicitudAdminListItem {
   tarifa_total: string;
   numero_cuotas_snapshot: number;
   estado: EstadoSolicitudApi;
+  motivo_rechazo?: string | null;
   decidido_por_id: string | null;
   decidido_en: string | null;
   comprobante_pago_url: string | null;
@@ -484,8 +497,28 @@ export interface DashboardAdelantosApi {
   empleados_sin_solicitudes: number;
   empleado_mas_solicitudes: { id: string; nombre: string; total: number } | null;
   empleado_mayor_monto: { id: string; nombre: string; monto_total: string } | null;
-  solicitudes_por_mes: Array<{ anio: number; mes: number; total: number; monto_total: string }>;
-  monto_solicitado_por_mes: Array<{ anio: number; mes: number; total: number; monto_total: string }>;
+  solicitudes_por_mes: Array<{
+    anio: number;
+    mes: number;
+    total: number;
+    monto_total: string;
+    monto_pagado?: string;
+    monto_aprobado?: string;
+    monto_en_revision?: string;
+    monto_solicitado?: string;
+    monto_rechazado?: string;
+  }>;
+  monto_solicitado_por_mes: Array<{
+    anio: number;
+    mes: number;
+    total: number;
+    monto_total: string;
+    monto_pagado?: string;
+    monto_aprobado?: string;
+    monto_en_revision?: string;
+    monto_solicitado?: string;
+    monto_rechazado?: string;
+  }>;
   tasa_aprobacion_por_mes: Array<{
     anio: number;
     mes: number;

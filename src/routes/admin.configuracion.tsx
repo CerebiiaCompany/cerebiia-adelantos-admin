@@ -10,10 +10,13 @@ import { ApiError } from "@/lib/api/errors";
 import { writeComisionCache, readComisionCache, DEFAULT_COMISION_VALOR } from "@/lib/adelanto-calculo";
 import type { ConfiguracionGlobal, HistorialConfiguracion } from "@/lib/api/types";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AnimatedNumber } from "@/components/admin/animated-number";
+import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Coins, Save } from "lucide-react";
+import { Loader2, Coins, Save, Percent, CalendarDays, Hash, Banknote } from "lucide-react";
 
 export const Route = createFileRoute("/admin/configuracion")({
   head: () => ({ meta: [{ title: "Configuración — Panel" }] }),
@@ -29,6 +32,7 @@ function tarifaToApiValue(valor: string): string {
 }
 
 function ConfiguracionPage() {
+  const animationKey = useModuleAnimationKey();
   const [config, setConfig] = useState<ConfiguracionGlobal | null>(null);
   const [historial, setHistorial] = useState<HistorialConfiguracion[]>([]);
   const [form, setForm] = useState({
@@ -172,6 +176,74 @@ function ConfiguracionPage() {
         </div>
       ) : (
         <>
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <AdminMetricCard
+              label="% máximo adelanto"
+              icon={Percent}
+              iconTone="trending"
+              value={
+                <AnimatedNumber
+                  value={Number(form.porcentaje_maximo_adelanto) || 0}
+                  animationKey={animationKey}
+                  delay={0}
+                />
+              }
+              sub="del salario disponible"
+              accent
+            />
+            <AdminMetricCard
+              label="Monto mínimo"
+              icon={Banknote}
+              iconTone="wallet"
+              value={
+                <AnimatedNumber
+                  value={Number(form.monto_minimo) || 0}
+                  format="currency"
+                  animationKey={animationKey}
+                  delay={60}
+                />
+              }
+            />
+            <AdminMetricCard
+              label="Máx. cuotas"
+              icon={Hash}
+              iconTone="building"
+              value={
+                <AnimatedNumber
+                  value={Number(form.numero_maximo_cuotas) || 0}
+                  animationKey={animationKey}
+                  delay={120}
+                />
+              }
+            />
+            <AdminMetricCard
+              label="Plazo máximo"
+              icon={CalendarDays}
+              iconTone="default"
+              value={
+                <AnimatedNumber
+                  value={Number(form.plazo_maximo_dias) || 0}
+                  animationKey={animationKey}
+                  delay={180}
+                />
+              }
+              sub="días"
+            />
+            <AdminMetricCard
+              label="Tarifa por cuota"
+              icon={Coins}
+              iconTone="success"
+              value={
+                <AnimatedNumber
+                  value={Number(comisionForm.valor_comision) || 0}
+                  format="currency"
+                  animationKey={animationKey}
+                  delay={240}
+                />
+              }
+            />
+          </section>
+
           <div className="grid lg:grid-cols-2 gap-6 items-stretch">
             <form onSubmit={submit} className="admin-panel-card h-full flex flex-col space-y-5">
               <div>
