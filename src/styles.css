@@ -232,34 +232,45 @@
   }
 
   .app-sidebar-nav-menu {
-    @apply gap-4;
+    @apply gap-5;
   }
 
-  .app-sidebar-nav-button {
-    @apply relative h-auto min-h-[3.5rem] overflow-hidden rounded-lg border-l-[3px] border-transparent;
-    @apply px-4 py-5 gap-9 tracking-normal;
-    @apply font-normal text-muted-foreground;
+  /* Tamaños visibles: pisan text-sm / [&>svg]:size-4 de shadcn SidebarMenuButton */
+  [data-sidebar="menu-button"].app-sidebar-nav-button {
+    @apply relative h-auto min-h-[3.25rem] overflow-hidden rounded-lg border-l-[3px] border-transparent;
+    @apply px-4 py-3.5 gap-6 tracking-normal font-normal text-muted-foreground;
     @apply transition-[color,background-color] duration-200 ease-out;
-    font-size: 1.0625rem;
-    line-height: 1.45;
+    font-size: 15px !important;
+    line-height: 1.4;
   }
 
-  .app-sidebar-nav-button svg {
-    width: 1.5rem;
-    height: 1.5rem;
+  [data-sidebar="menu-button"].app-sidebar-nav-button svg,
+  [data-sidebar="menu-button"].app-sidebar-nav-button > a > svg,
+  [data-sidebar="menu-button"].app-sidebar-nav-button > svg {
+    width: 15px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    min-height: 15px !important;
     flex-shrink: 0;
   }
 
-  .app-sidebar-nav-logout {
-    @apply h-auto min-h-[3.5rem] w-full gap-9 rounded-lg px-4 py-5 font-normal tracking-normal;
-    @apply text-destructive hover:bg-transparent hover:text-destructive;
-    font-size: 1.0625rem;
-    line-height: 1.45;
+  [data-sidebar="menu-button"].app-sidebar-nav-button .app-sidebar-nav-label {
+    font-size: 15px !important;
+    line-height: 1.4;
   }
 
-  .app-sidebar-nav-logout svg {
-    width: 1.5rem;
-    height: 1.5rem;
+  [data-sidebar="menu-button"].app-sidebar-nav-logout {
+    @apply h-auto min-h-[3.25rem] w-full gap-6 rounded-lg px-4 py-3.5 font-normal tracking-normal;
+    @apply text-destructive hover:bg-transparent hover:text-destructive;
+    font-size: 15px !important;
+    line-height: 1.4;
+  }
+
+  [data-sidebar="menu-button"].app-sidebar-nav-logout svg {
+    width: 15px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    min-height: 15px !important;
     flex-shrink: 0;
   }
 
@@ -342,9 +353,13 @@
   }
 
   .group[data-collapsible="icon"] .app-sidebar-nav-button svg,
-  .group[data-collapsible="icon"] .app-sidebar-nav-logout svg {
-    width: 1.25rem;
-    height: 1.25rem;
+  .group[data-collapsible="icon"] .app-sidebar-nav-logout svg,
+  .group[data-collapsible="icon"] [data-sidebar="menu-button"].app-sidebar-nav-button svg,
+  .group[data-collapsible="icon"] [data-sidebar="menu-button"].app-sidebar-nav-logout svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    min-width: 1.25rem !important;
+    min-height: 1.25rem !important;
   }
 
   .group[data-collapsible="icon"] .app-sidebar-nav-button--active {
@@ -1056,14 +1071,13 @@
   }
 }
 
-/* Admin — olas de fondo (morado → azul) */
+/* Admin — olas de fondo (lavanda sólido del diseño) */
 .admin-background-sky {
   background: linear-gradient(
     180deg,
     hsl(262 45% 98%) 0%,
-    hsl(240 50% 99%) 38%,
-    hsl(0 0% 100%) 58%,
-    hsl(228 55% 98%) 100%
+    hsl(262 40% 99%) 40%,
+    hsl(0 0% 100%) 100%
   );
 }
 

@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
-import type { User, UserRole } from "@/lib/api/types";
+import type { EmpleadoAdminApi, User, UserRole } from "@/lib/api/types";
+import { listarTodosEmpleadosAdmin } from "@/lib/api/empleados";
 import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
@@ -10,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Link } from "@tanstack/react-router";
 import {
   Dialog,
   DialogContent,
@@ -34,11 +34,39 @@ export const Route = createFileRoute("/admin/usuarios")({
   component: UsuariosPage,
 });
 
+type Vista = "empleados" | "accesos";
+
 const emptyForm = {
   email: "",
   full_name: "",
   password: "",
 };
+
+function labelEstadoEmpleado(estado: string): string {
+  switch (estado.toLowerCase()) {
+    case "activo":
+      return "Activo";
+    case "inactivo":
+      return "Suspendido";
+    case "pre_registrado":
+      return "Pendiente";
+    default:
+      return estado || "—";
+  }
+}
+
+function estadoEmpleadoBadgeClass(estado: string): string {
+  switch (estado.toLowerCase()) {
+    case "activo":
+      return "bg-success/15 text-success border-success/35";
+    case "pre_registrado":
+      return "bg-warning/15 text-warning border-warning/35";
+    case "inactivo":
+      return "bg-destructive/15 text-destructive border-destructive/35";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+}
 
 /** Estado visible del toggle: para rol empresa prioriza `empresa.activa`. */
 function userToggleActive(user: User): boolean {
@@ -48,10 +76,6 @@ function userToggleActive(user: User): boolean {
   return user.is_active;
 }
 
-/**
- * Reactiva empresa (y su admin). Si la empresa ya está activa pero el user no,
- * hace suspender→reactivar para sincronizar login.
- */
 async function ensureEmpresaActiva(empresaId: string, empresaYaActiva: boolean) {
   if (!empresaYaActiva) {
     await reactivarEmpresa(empresaId);
@@ -62,6 +86,290 @@ async function ensureEmpresaActiva(empresaId: string, empresaYaActiva: boolean) 
 }
 
 function UsuariosPage() {
+  const [vista, setVista] = useState<Vista>("empleados");
+
+  return (
+    <div className="admin-page">
+      <AdminPageHeader
+        eyebrow="Personas"
+        title="Usuarios"
+        subtitle={
+          vista === "empleados"
+            ? "Todos los empleados de nómina, sin importar su estado."
+            : "Cuentas de acceso (super admin y empresas). Las empresas se registran desde Empresas."
+        }
+        aside={
+          <Select value={vista} onValueChange={(v) => setVista(v as Vista)}>
+            <SelectTrigger className="w-full sm:w-[200px] h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="empleados">Empleados (nómina)</SelectItem>
+              <SelectItem value="accesos">Accesos</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
+
+      {vista === "empleados" ? <EmpleadosNominaSection /> : <AccesosSection />}
+    </div>
+  );
+}
+
+function EmpleadosNominaSection() {
+  const [empleados, setEmpleados] = useState<EmpleadoAdminApi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [estadoFiltro, setEstadoFiltro] = useState<"all" | "activo" | "pre_registrado" | "inactivo">(
+    "all",
+  );
+  const [busqueda, setBusqueda] = useState("");
+  const [detail, setDetail] = useState<EmpleadoAdminApi | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Sin `estado` → backend entrega activo, pre_registrado e inactivo.
+      setEmpleados(await listarTodosEmpleadosAdmin());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudieron cargar los empleados.");
+      setEmpleados([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return empleados.filter((e) => {
+      if (estadoFiltro !== "all" && e.estado !== estadoFiltro) return false;
+      if (!q) return true;
+      return (
+        e.nombre.toLowerCase().includes(q) ||
+        e.documento.toLowerCase().includes(q) ||
+        e.email_empleado.toLowerCase().includes(q) ||
+        (e.empresa_nombre ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [empleados, estadoFiltro, busqueda]);
+
+  const counts = useMemo(() => {
+    return {
+      total: empleados.length,
+      activos: empleados.filter((e) => e.estado === "activo").length,
+      pendientes: empleados.filter((e) => e.estado === "pre_registrado").length,
+      suspendidos: empleados.filter((e) => e.estado === "inactivo").length,
+    };
+  }, [empleados]);
+
+  return (
+    <>
+      {error && (
+        <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+          {error}
+        </p>
+      )}
+
+      <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+        <div className="space-y-1.5 flex-1 min-w-[180px]">
+          <Label className="text-xs">Buscar</Label>
+          <Input
+            placeholder="Nombre, documento, correo o empresa…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5 w-full sm:w-[180px]">
+          <Label className="text-xs">Estado</Label>
+          <Select
+            value={estadoFiltro}
+            onValueChange={(v) => setEstadoFiltro(v as typeof estadoFiltro)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="activo">Activo</SelectItem>
+              <SelectItem value="pre_registrado">Pendiente</SelectItem>
+              <SelectItem value="inactivo">Suspendido</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <p className="mb-4 text-sm text-muted-foreground">
+        {counts.total} empleados · {counts.activos} activos · {counts.pendientes} pendientes ·{" "}
+        {counts.suspendidos} suspendidos
+        {filtered.length !== empleados.length ? ` · mostrando ${filtered.length}` : ""}
+      </p>
+
+      <div className="admin-panel-card-flush">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+            Cargando empleados…
+          </div>
+        ) : (
+          <div className="admin-table-scroll">
+            <table className="admin-table">
+              <thead className="admin-table-head">
+                <tr>
+                  <th className="admin-table-th text-left">Empleado</th>
+                  <th className="admin-table-th text-left hidden sm:table-cell">Tipo doc.</th>
+                  <th className="admin-table-th text-left hidden md:table-cell">Documento</th>
+                  <th className="admin-table-th text-left hidden lg:table-cell">Correo</th>
+                  <th className="admin-table-th text-left hidden xl:table-cell">Empresa</th>
+                  <th className="admin-table-th text-center">Estado</th>
+                  <th className="admin-table-th text-left hidden lg:table-cell">Ingreso</th>
+                  <th className="admin-table-th text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-muted/30">
+                    <td>
+                      <div className="admin-table-cell-title">{emp.nombre}</div>
+                      <div className="admin-table-cell-sub md:hidden">
+                        {(emp.tipo_documento || "—").toUpperCase()} · {emp.documento}
+                      </div>
+                    </td>
+                    <td className="hidden sm:table-cell admin-table-cell-sub font-medium uppercase">
+                      {emp.tipo_documento || "—"}
+                    </td>
+                    <td className="hidden md:table-cell admin-table-cell-sub tabular">
+                      {emp.documento}
+                    </td>
+                    <td className="hidden lg:table-cell admin-table-cell-sub">
+                      {emp.email_empleado || "—"}
+                    </td>
+                    <td className="hidden xl:table-cell">
+                      {emp.empresa_nombre ? (
+                        <div className="admin-table-cell-title text-sm">{emp.empresa_nombre}</div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className={`inline-flex items-center text-xs font-medium rounded-md border px-2.5 py-1 ${estadoEmpleadoBadgeClass(emp.estado)}`}
+                      >
+                        {labelEstadoEmpleado(emp.estado)}
+                      </span>
+                    </td>
+                    <td className="hidden lg:table-cell text-muted-foreground tabular">
+                      {emp.fecha_ingreso
+                        ? new Date(emp.fecha_ingreso).toLocaleDateString("es-CO")
+                        : "—"}
+                    </td>
+                    <td className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-10"
+                        onClick={() => setDetail(emp)}
+                        title="Ver detalle"
+                        aria-label="Ver detalle del empleado"
+                      >
+                        <Info className="size-5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="admin-table-empty">
+                      No hay empleados que coincidan con el filtro.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalle de empleado</DialogTitle>
+            <DialogDescription>Información de nómina desde GET /empleados/admin/</DialogDescription>
+          </DialogHeader>
+          {detail && (
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Nombre</dt>
+                <dd className="font-semibold">{detail.nombre}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Tipo documento</dt>
+                  <dd className="font-medium uppercase">{detail.tipo_documento || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Documento</dt>
+                  <dd className="tabular">{detail.documento}</dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Estado</dt>
+                <dd>
+                  <span
+                    className={`inline-flex items-center text-xs font-medium rounded-md border px-2 py-0.5 ${estadoEmpleadoBadgeClass(detail.estado)}`}
+                  >
+                    {labelEstadoEmpleado(detail.estado)}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Correo</dt>
+                <dd>{detail.email_empleado || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Empresa</dt>
+                <dd className="font-medium">{detail.empresa_nombre || "—"}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Celular</dt>
+                  <dd className="tabular">{detail.celular || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Salario</dt>
+                  <dd className="tabular">
+                    {Number(detail.salario).toLocaleString("es-CO", {
+                      style: "currency",
+                      currency: "COP",
+                      maximumFractionDigits: 0,
+                    })}
+                  </dd>
+                </div>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">Banco / cuenta</dt>
+                <dd>
+                  {detail.banco_nombre || "—"} · {detail.tipo_cuenta} · {detail.numero_cuenta}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground uppercase">ID</dt>
+                <dd className="font-mono text-xs break-all">{detail.id}</dd>
+              </div>
+            </dl>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function AccesosSection() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,8 +401,6 @@ function UsuariosPage() {
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
-
-  const filtered = users;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,123 +488,116 @@ function UsuariosPage() {
   };
 
   return (
-    <div className="admin-page">
-      <AdminPageHeader
-        eyebrow="Accesos"
-        title="Usuarios"
-        subtitle="Listado global de accesos. Las empresas se registran solo desde el módulo Empresas."
-        aside={
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full sm:w-auto">
-            <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as UserRole | "all")}>
-              <SelectTrigger className="w-full sm:w-[180px] h-10">
-                <SelectValue placeholder="Filtrar rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los roles</SelectItem>
-                <SelectItem value="super_admin">Super admin</SelectItem>
-                <SelectItem value="empresa">Empresa</SelectItem>
-                <SelectItem value="empleado">Empleado</SelectItem>
-              </SelectContent>
-            </Select>
+    <>
+      <div className="mb-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as UserRole | "all")}>
+          <SelectTrigger className="w-full sm:w-[180px] h-10">
+            <SelectValue placeholder="Filtrar rol" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los roles</SelectItem>
+            <SelectItem value="super_admin">Super admin</SelectItem>
+            <SelectItem value="empresa">Empresa</SelectItem>
+            <SelectItem value="empleado">Empleado</SelectItem>
+          </SelectContent>
+        </Select>
 
-            <Dialog
-              open={open}
-              onOpenChange={(next) => {
-                setOpen(next);
-                if (!next) {
-                  setShowPassword(false);
-                  setSubmitError(null);
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="size-4 mr-1" />
-                  Nuevo empleado
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) {
+              setShowPassword(false);
+              setSubmitError(null);
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="size-4 mr-1" />
+              Nuevo empleado (acceso)
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear usuario empleado</DialogTitle>
+              <DialogDescription>
+                Solo crea cuentas con rol <strong>empleado</strong> en el sistema de accesos.
+                La nómina real se gestiona desde{" "}
+                <Link to="/admin/empresas" className="text-primary font-medium hover:underline">
+                  Empresas
+                </Link>
+                .
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={submit} className="space-y-4">
+              {submitError && (
+                <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
+                  {submitError}
+                </p>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="full_name">Nombre completo</Label>
+                <Input
+                  id="full_name"
+                  required
+                  maxLength={255}
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Correo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Contraseña</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
+                  Cancelar
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Crear usuario empleado</DialogTitle>
-                  <DialogDescription>
-                    Solo crea cuentas con rol <strong>empleado</strong> (nombre, correo y contraseña).
-                    Para registrar una <strong>empresa</strong> con NIT y administrador, usa{" "}
-                    <Link to="/admin/empresas" className="text-primary font-medium hover:underline">
-                      Empresas → Nueva empresa
-                    </Link>
-                    .
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={submit} className="space-y-4">
-                  {submitError && (
-                    <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-                      {submitError}
-                    </p>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Creando…
+                    </>
+                  ) : (
+                    "Crear empleado"
                   )}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="full_name">Nombre completo</Label>
-                    <Input
-                      id="full_name"
-                      required
-                      maxLength={255}
-                      value={form.full_name}
-                      onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">Correo</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password">Contraseña</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        required
-                        minLength={8}
-                        autoComplete="new-password"
-                        value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                      >
-                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={submitting}>
-                      {submitting ? (
-                        <>
-                          <Loader2 className="size-4 mr-2 animate-spin" />
-                          Creando…
-                        </>
-                      ) : (
-                        "Crear empleado"
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        }
-      />
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {error && (
         <p className="mb-4 text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
@@ -318,119 +617,98 @@ function UsuariosPage() {
           </div>
         ) : (
           <div className="admin-table-scroll">
-          <table className="admin-table">
-            <thead className="admin-table-head">
-              <tr>
-                <th className="admin-table-th text-left">Usuario</th>
-                <th className="admin-table-th text-left hidden md:table-cell">Correo</th>
-                <th className="admin-table-th text-left hidden xl:table-cell">Empresa</th>
-                <th className="admin-table-th text-center">Rol</th>
-                <th className="admin-table-th text-center">Estado</th>
-                <th className="admin-table-th text-left hidden lg:table-cell">Registro</th>
-                <th className="admin-table-th text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((user) => (
-                <tr key={user.id} className="hover:bg-muted/30">
-                  <td>
-                    <div className="admin-table-cell-title">{user.full_name}</div>
-                    <div className="admin-table-cell-sub md:hidden">{user.email}</div>
-                  </td>
-                  <td className="hidden md:table-cell admin-table-cell-sub">{user.email}</td>
-                  <td className="hidden xl:table-cell">
-                    {user.empresa ? (
-                      <div>
-                        <div className="admin-table-cell-title text-sm">{user.empresa.nombre}</div>
-                        <div className="admin-table-cell-sub tabular">
-                          {user.empresa.nit}
-                          {typeof user.empleados_count === "number"
-                            ? ` · ${user.empleados_count} emp.`
-                            : ""}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <span
-                      className={`inline-flex items-center text-sm font-medium rounded-md border px-2.5 py-1 ${ROLE_BADGE_CLASSES[user.role]}`}
-                    >
-                      {ROLE_LABELS[user.role]}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <span
-                      className={`text-sm font-medium ${userToggleActive(user) ? "text-success" : "text-muted-foreground"}`}
-                    >
-                      {userToggleActive(user) ? "Activo" : "Inactivo"}
-                    </span>
-                    {user.role === "empresa" &&
-                      user.empresa &&
-                      user.empresa.activa !== user.is_active && (
-                        <div className="text-[10px] text-warning mt-0.5">Desync login</div>
-                      )}
-                  </td>
-                  <td className="hidden lg:table-cell text-muted-foreground tabular">
-                    {new Date(user.created_at).toLocaleDateString("es-CO")}
-                  </td>
-                  <td className="text-right">
-                    <div className="flex justify-end items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-10"
-                        onClick={() => void openDetail(user.id)}
-                        title="Ver detalle"
-                        aria-label="Ver detalle del usuario"
-                      >
-                        <Info className="size-5" />
-                      </Button>
-                      {togglingId === user.id ? (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <Switch
-                          checked={userToggleActive(user)}
-                          disabled={
-                            user.role === "super_admin" ||
-                            (user.role === "empleado" && !user.is_active)
-                          }
-                          onCheckedChange={(checked) => {
-                            void handleToggleActivo(user, checked);
-                          }}
-                          aria-label={
-                            user.role === "super_admin"
-                              ? "No se puede desactivar un super admin"
-                              : userToggleActive(user)
-                                ? "Desactivar usuario"
-                                : "Activar usuario"
-                          }
-                          title={
-                            user.role === "super_admin"
-                              ? "No se puede desactivar un super admin"
-                              : user.role === "empleado" && !user.is_active
-                                ? "Falta endpoint de reactivación de empleado"
-                                : user.role === "empresa"
-                                  ? "Suspende/reactiva la empresa vinculada"
-                                  : undefined
-                          }
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
+            <table className="admin-table">
+              <thead className="admin-table-head">
                 <tr>
-                  <td colSpan={7} className="admin-table-empty">
-                    No hay usuarios que coincidan con el filtro.
-                  </td>
+                  <th className="admin-table-th text-left">Usuario</th>
+                  <th className="admin-table-th text-left hidden md:table-cell">Correo</th>
+                  <th className="admin-table-th text-left hidden xl:table-cell">Empresa</th>
+                  <th className="admin-table-th text-center">Rol</th>
+                  <th className="admin-table-th text-center">Estado</th>
+                  <th className="admin-table-th text-left hidden lg:table-cell">Registro</th>
+                  <th className="admin-table-th text-right">Acciones</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {users.map((user) => (
+                  <tr key={user.id} className="hover:bg-muted/30">
+                    <td>
+                      <div className="admin-table-cell-title">{user.full_name}</div>
+                      <div className="admin-table-cell-sub md:hidden">{user.email}</div>
+                    </td>
+                    <td className="hidden md:table-cell admin-table-cell-sub">{user.email}</td>
+                    <td className="hidden xl:table-cell">
+                      {user.empresa ? (
+                        <div>
+                          <div className="admin-table-cell-title text-sm">{user.empresa.nombre}</div>
+                          <div className="admin-table-cell-sub tabular">
+                            {user.empresa.nit}
+                            {typeof user.empleados_count === "number"
+                              ? ` · ${user.empleados_count} emp.`
+                              : ""}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className={`inline-flex items-center text-sm font-medium rounded-md border px-2.5 py-1 ${ROLE_BADGE_CLASSES[user.role]}`}
+                      >
+                        {ROLE_LABELS[user.role]}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className={`text-sm font-medium ${userToggleActive(user) ? "text-success" : "text-muted-foreground"}`}
+                      >
+                        {userToggleActive(user) ? "Activo" : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="hidden lg:table-cell text-muted-foreground tabular">
+                      {new Date(user.created_at).toLocaleDateString("es-CO")}
+                    </td>
+                    <td className="text-right">
+                      <div className="flex justify-end items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-10"
+                          onClick={() => void openDetail(user.id)}
+                          title="Ver detalle"
+                          aria-label="Ver detalle del usuario"
+                        >
+                          <Info className="size-5" />
+                        </Button>
+                        {togglingId === user.id ? (
+                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Switch
+                            checked={userToggleActive(user)}
+                            disabled={
+                              user.role === "super_admin" ||
+                              (user.role === "empleado" && !user.is_active)
+                            }
+                            onCheckedChange={(checked) => {
+                              void handleToggleActivo(user, checked);
+                            }}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="admin-table-empty">
+                      No hay usuarios que coincidan con el filtro.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -497,28 +775,12 @@ function UsuariosPage() {
                 <div>
                   <dt className="text-xs text-muted-foreground uppercase">Empresa</dt>
                   <dd className="font-medium">{detailUser.empresa.nombre}</dd>
-                  <dd className="text-muted-foreground tabular text-xs mt-0.5">
-                    NIT {detailUser.empresa.nit} ·{" "}
-                    {detailUser.empresa.activa ? "Activa" : "Inactiva"}
-                    {typeof detailUser.empleados_count === "number"
-                      ? ` · ${detailUser.empleados_count} empleados`
-                      : ""}
-                  </dd>
                 </div>
               )}
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Registro</dt>
-                <dd className="tabular">
-                  {new Date(detailUser.created_at).toLocaleString("es-CO", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </dd>
-              </div>
             </dl>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

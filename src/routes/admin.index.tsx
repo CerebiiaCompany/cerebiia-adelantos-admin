@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { estadoLabel } from "@/lib/admin-store";
 import { useAdelantoParametros } from "@/hooks/use-adelanto-parametros";
 import { useDashboardAdelantos } from "@/hooks/use-dashboard-adelantos";
@@ -7,6 +7,12 @@ import { useEmpleadosMetricas } from "@/hooks/use-empleados-metricas";
 import { useSolicitudesRecientes } from "@/hooks/use-solicitudes-recientes";
 import { empresasToBars, useEmpresasRanking } from "@/hooks/use-empresas-ranking";
 import { dashboardToMonthlyTrend } from "@/lib/dashboard-api-data";
+import {
+  currentMonthKey,
+  PERIODO_HISTORICO,
+  periodoLabel,
+  recentMonthKeys,
+} from "@/lib/dashboard-periodo";
 import { ESTADO_TEXT_CLASSES } from "@/lib/adelanto-estado";
 import { getStoredUser } from "@/lib/auth-storage";
 import { PageHeader } from "@/components/admin/page-header";
@@ -15,6 +21,14 @@ import { AnimatedNumber } from "@/components/admin/animated-number";
 import { DashboardEmpresaChart, DashboardTrendChart } from "@/components/admin/dashboard-charts";
 import { useDashboardAnimationKey } from "@/hooks/use-dashboard-animation-key";
 import { useTimeBasedGreeting } from "@/hooks/use-time-based-greeting";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Wallet, CheckCircle2, TrendingUp, ArrowUpRight, Coins, Users, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
@@ -23,12 +37,22 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function Dashboard() {
+  const [periodoKey, setPeriodoKey] = useState(currentMonthKey);
+  const [periodoAnimTick, setPeriodoAnimTick] = useState(0);
+  const monthOptions = useMemo(() => recentMonthKeys(12), []);
+  const isHistorico = periodoKey === PERIODO_HISTORICO;
+
+  useEffect(() => {
+    setPeriodoAnimTick((t) => t + 1);
+  }, [periodoKey]);
+
   const { valorComision } = useAdelantoParametros();
-  const { data: dashboardApi, loading: loadingDashboard } = useDashboardAdelantos();
+  const { data: dashboardApi, loading: loadingDashboard } = useDashboardAdelantos(periodoKey);
   const { data: empleadosMetricas } = useEmpleadosMetricas();
-  const { adelantos: recientes, loading: loadingRecientes } = useSolicitudesRecientes(6);
-  const { empresas, loading: loadingEmpresas } = useEmpresasRanking();
-  const animationKey = useDashboardAnimationKey();
+  const { adelantos: recientes, loading: loadingRecientes } = useSolicitudesRecientes(6, periodoKey);
+  const { empresas, loading: loadingEmpresas } = useEmpresasRanking(periodoKey);
+  const routeAnimationKey = useDashboardAnimationKey();
+  const animationKey = routeAnimationKey + periodoAnimTick;
   const displayName = getStoredUser()?.full_name ?? "Administrador";
   const greeting = useTimeBasedGreeting(displayName);
 
@@ -38,6 +62,8 @@ function Dashboard() {
   );
 
   const empresaBars = useMemo(() => empresasToBars(empresas), [empresas]);
+
+  const periodoSub = isHistorico ? "histórico (toda la vida)" : periodoLabel(periodoKey);
 
   const stats = useMemo(() => {
     const totalAdelantos = dashboardApi?.total_solicitudes ?? 0;
@@ -72,14 +98,24 @@ function Dashboard() {
         iconAnimationClassName={greeting.iconAnimationClassName}
         className="lg:items-center"
         actions={
-          <p className="text-sm text-muted-foreground">
-            Datos al{" "}
-            {new Date().toLocaleDateString("es-CO", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Periodo</Label>
+              <Select value={periodoKey} onValueChange={setPeriodoKey}>
+                <SelectTrigger className="w-full sm:w-[240px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PERIODO_HISTORICO}>Histórico (toda la vida)</SelectItem>
+                  {monthOptions.map((m) => (
+                    <SelectItem key={m} value={m} className="capitalize">
+                      {periodoLabel(m)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         }
       />
 
@@ -112,7 +148,7 @@ function Dashboard() {
           value={
             <AnimatedNumber value={stats.totalAdelantos} animationKey={animationKey} delay={80} />
           }
-          sub="acumulado histórico"
+          sub={<span className="capitalize">{periodoSub}</span>}
           icon={Wallet}
         />
         <AdminMetricCard
@@ -127,9 +163,9 @@ function Dashboard() {
             />
           }
           sub={
-            <span className="flex items-center gap-1">
-              <ArrowUpRight className="size-3.5 text-primary" />
-              todas las solicitudes
+            <span className="flex items-center gap-1 capitalize">
+              <ArrowUpRight className="size-3.5 text-primary shrink-0" />
+              {periodoSub}
             </span>
           }
           icon={TrendingUp}
@@ -162,7 +198,7 @@ function Dashboard() {
           }
           sub={
             stats.tasaAprobacion != null
-              ? `Tasa aprobación mes: ${stats.tasaAprobacion.toFixed(0)}%`
+              ? `Tasa aprobación: ${stats.tasaAprobacion.toFixed(0)}%`
               : "estimado por tarifa × cuotas"
           }
           icon={Coins}
@@ -183,7 +219,9 @@ function Dashboard() {
 
         <div className="admin-panel-card">
           <h2 className="admin-section-title text-lg mb-1">Solicitudes recientes</h2>
-          <p className="admin-section-subtitle text-base mb-5">Últimas 6 del API.</p>
+          <p className="admin-section-subtitle text-base mb-5 capitalize">
+            Últimas 6 · {periodoSub}
+          </p>
           <div className="divide-y divide-border">
             {recientes.map((a, index) => (
               <div key={a.id} className="py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
@@ -215,7 +253,7 @@ function Dashboard() {
             ))}
             {recientes.length === 0 && !loading && (
               <p className="text-sm text-muted-foreground py-6 text-center">
-                Sin solicitudes registradas.
+                Sin solicitudes en este periodo.
               </p>
             )}
           </div>

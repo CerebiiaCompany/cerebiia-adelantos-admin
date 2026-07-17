@@ -50,15 +50,26 @@ export interface CreateUserPayload {
 export interface CreateEmpresaPayload {
   nombre: string;
   nit: string;
+  telefono: string;
   email: string;
   password: string;
   full_name: string;
+}
+
+export interface UpdateEmpresaPayload {
+  nombre: string;
+  nit: string;
+  telefono: string;
+  email: string;
+  full_name: string;
+  password?: string;
 }
 
 export interface ApiEmpresa {
   id: string;
   nombre: string;
   nit: string;
+  telefono: string;
   user_id: string;
   dia_pago_nomina: number;
   activa: boolean;
@@ -71,6 +82,7 @@ export interface EmpresaListItem {
   id: string;
   nombre: string;
   nit: string;
+  telefono: string;
   user_id: string;
   dia_pago_nomina: number;
   activa: boolean;
@@ -252,6 +264,7 @@ export interface ConfiguracionGlobal {
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
   tarifa_fija_por_cuota: string;
+  monto_minimo: string;
   updated_at: string;
 }
 
@@ -260,6 +273,7 @@ export interface UpdateConfiguracionPayload {
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
   tarifa_fija_por_cuota: string;
+  monto_minimo: string;
 }
 
 export interface HistorialConfiguracion {
@@ -268,6 +282,7 @@ export interface HistorialConfiguracion {
   numero_maximo_cuotas: number;
   plazo_maximo_dias: number;
   tarifa_fija_por_cuota: string;
+  monto_minimo: string;
   actualizado_por: string | null;
   timestamp: string;
 }
@@ -369,6 +384,13 @@ export interface SolicitudAdminApi {
   created_at: string;
   empleado: SolicitudAdminEmpleado;
   empresa: SolicitudAdminEmpresa;
+  /** Snapshots al crear la solicitud (null en registros antiguos). */
+  saldo_disponible_antes?: string | null;
+  saldo_disponible_despues?: string | null;
+  nomina_antes?: string | null;
+  nomina_despues?: string | null;
+  total_adelantos_mes?: string | null;
+  tiene_contexto_operativo?: boolean;
 }
 
 export interface RechazarSolicitudPayload {
@@ -425,6 +447,50 @@ export interface EmpleadosMetricasApi {
   masa_salarial_total: string;
   salario_promedio: string;
 }
+
+/** Ítem de `GET /empleados/admin/?empresa_id=`. */
+export interface EmpleadoAdminApi {
+  id: string;
+  documento: string;
+  nombre: string;
+  salario: string;
+  banco_id: string;
+  banco_nombre: string;
+  numero_cuenta: string;
+  tipo_documento: string;
+  email_empleado: string;
+  celular: string;
+  tipo_contrato: string;
+  fecha_ingreso: string;
+  tipo_cuenta: string;
+  estado: string;
+  empresa_id: string;
+  empresa_nombre?: string;
+  saldo_disponible: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListadoEmpleadosAdminApi {
+  count: number;
+  page: number;
+  page_size: number;
+  next: number | null;
+  previous: number | null;
+  results: EmpleadoAdminApi[];
+}
+
+export type ListEmpleadosAdminParams = {
+  /** Si se omite, lista empleados de todas las empresas. */
+  empresa_id?: string;
+  page?: number;
+  page_size?: number;
+  nombre?: string;
+  email?: string;
+  documento?: string;
+  /** Si se omite, incluye activo, pre_registrado e inactivo. */
+  estado?: string;
+};
 
 export interface Comision {
   valor_comision: string;

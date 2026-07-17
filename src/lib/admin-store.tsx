@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { DEFAULT_MAX_CUOTAS, clampNumeroCuotas, inferNumeroCuotas, assignNumeroCuotasDemo } from "@/lib/adelanto-calculo";
+import { DEFAULT_MAX_CUOTAS, clampNumeroCuotas, inferNumeroCuotas, assignNumeroCuotasDemo, calcularDesgloseAdelanto } from "@/lib/adelanto-calculo";
 import type { CuentaCobro } from "@/lib/cuenta-cobro";
 import { calcularMontosCobro } from "@/lib/cuenta-cobro";
 import { aplicarCuotasPorVerificacion, adelantoDebeCobrarseEnPeriodo } from "@/lib/cuotas-adelanto";
@@ -64,10 +64,23 @@ export function calcularTotalAdelantadoEmpleado(empleado: Empleado, adelantos: A
     .reduce((sum, a) => sum + a.monto, 0);
 }
 
-export function calcularTotalPagadoEmpleado(empleado: Empleado, adelantos: Adelanto[]): number {
+/** Suma lo transferido al empleado (neto tras comisión) en adelantos pagados. */
+export function calcularTotalPagadoEmpleado(
+  empleado: Empleado,
+  adelantos: Adelanto[],
+  valorComision?: string | number,
+): number {
   return adelantos
     .filter((a) => empleadoCoincideAdelanto(empleado, a) && a.estado === "pagado")
-    .reduce((sum, a) => sum + a.monto, 0);
+    .reduce((sum, a) => {
+      if (a.montoNeto != null && a.montoNeto > 0) {
+        return sum + a.montoNeto;
+      }
+      if (valorComision != null) {
+        return sum + calcularDesgloseAdelanto(a.monto, a.numeroCuotas, valorComision).totalARecibir;
+      }
+      return sum + a.monto;
+    }, 0);
 }
 
 export type EstadoAdelanto = "solicitado" | "en_revision" | "aprobado" | "pagado" | "rechazado";

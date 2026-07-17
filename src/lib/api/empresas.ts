@@ -6,6 +6,7 @@ import type {
   ListEmpresasParams,
   ReactivarEmpresaResponse,
   SuspenderEmpresaResponse,
+  UpdateEmpresaPayload,
 } from "./types";
 
 function buildQuery(params?: ListEmpresasParams): string {
@@ -27,6 +28,14 @@ export function listarEmpresas(params?: ListEmpresasParams) {
 export function createEmpresa(payload: CreateEmpresaPayload) {
   return apiRequest<ApiEmpresa>("/empresas/", {
     method: "POST",
+    auth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateEmpresa(empresaId: string, payload: UpdateEmpresaPayload) {
+  return apiRequest<ApiEmpresa>(`/empresas/${empresaId}/`, {
+    method: "PATCH",
     auth: true,
     body: JSON.stringify(payload),
   });

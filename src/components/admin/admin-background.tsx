@@ -1,7 +1,6 @@
-import { useId } from "react";
 import { cn } from "@/lib/utils";
 
-/** Paths cerrados en y=0 y y=1440 para bucle sin costuras. */
+/** Paths cerrados para bucle sin costuras (viewBox 1440×320, duplicado en el track). */
 const WAVE_PATHS = {
   back: "M0,120 C360,180 720,60 1080,120 C1260,150 1380,90 1440,120 L1440,320 L0,320 Z",
   mid: "M0,160 C360,100 720,220 1080,160 C1260,130 1380,190 1440,160 L1440,320 L0,320 Z",
@@ -10,14 +9,14 @@ const WAVE_PATHS = {
 
 type WaveLayerProps = {
   path: string;
-  gradId: string;
-  stops: { offset: string; color: string; opacity: number }[];
+  /** Color sólido de la ola (sin degradado interno). */
+  fill: string;
   className?: string;
   duration: string;
   delay?: string;
 };
 
-function WaveLayer({ path, gradId, stops, className, duration, delay }: WaveLayerProps) {
+function WaveLayer({ path, fill, className, duration, delay }: WaveLayerProps) {
   return (
     <div className={cn("admin-wave-layer", className)}>
       <div
@@ -30,36 +29,25 @@ function WaveLayer({ path, gradId, stops, className, duration, delay }: WaveLaye
           preserveAspectRatio="none"
           aria-hidden
         >
-          <defs>
-            <linearGradient
-              id={gradId}
-              gradientUnits="userSpaceOnUse"
-              x1="0"
-              y1="0"
-              x2="2880"
-              y2="320"
-            >
-              {stops.map((stop) => (
-                <stop
-                  key={stop.offset}
-                  offset={stop.offset}
-                  stopColor={stop.color}
-                  stopOpacity={stop.opacity}
-                />
-              ))}
-            </linearGradient>
-          </defs>
-          <path fill={`url(#${gradId})`} d={path} />
-          <path fill={`url(#${gradId})`} d={path} transform="translate(1440 0)" />
+          <path fill={fill} d={path} />
+          <path fill={fill} d={path} transform="translate(1440 0)" />
         </svg>
       </div>
     </div>
   );
 }
 
-export function AdminBackground() {
-  const uid = useId().replace(/:/g, "");
+/**
+ * Tres olas sólidas en tonos lavanda/violeta del diseño
+ * (sin bandas de color horizontales por degradado).
+ */
+const WAVE_COLORS = {
+  back: "hsl(262 55% 92%)",
+  mid: "hsl(262 50% 88%)",
+  front: "hsl(262 48% 84%)",
+} as const;
 
+export function AdminBackground() {
   return (
     <div className="admin-background pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       <div className="admin-background-sky absolute inset-0" />
@@ -67,38 +55,23 @@ export function AdminBackground() {
       <div className="admin-waves absolute bottom-0 left-0 w-full h-[min(42vh,320px)]">
         <WaveLayer
           path={WAVE_PATHS.back}
-          gradId={`admin-wave-back-${uid}`}
+          fill={WAVE_COLORS.back}
           className="admin-wave-layer--back"
           duration="60s"
-          stops={[
-            { offset: "0%", color: "hsl(230 85% 58%)", opacity: 0.09 },
-            { offset: "55%", color: "hsl(250 78% 56%)", opacity: 0.11 },
-            { offset: "100%", color: "hsl(265 72% 54%)", opacity: 0.08 },
-          ]}
         />
         <WaveLayer
           path={WAVE_PATHS.mid}
-          gradId={`admin-wave-mid-${uid}`}
+          fill={WAVE_COLORS.mid}
           className="admin-wave-layer--mid"
           duration="45s"
           delay="-8s"
-          stops={[
-            { offset: "0%", color: "hsl(255 80% 56%)", opacity: 0.12 },
-            { offset: "50%", color: "hsl(235 82% 54%)", opacity: 0.15 },
-            { offset: "100%", color: "hsl(220 88% 52%)", opacity: 0.1 },
-          ]}
         />
         <WaveLayer
           path={WAVE_PATHS.front}
-          gradId={`admin-wave-front-${uid}`}
+          fill={WAVE_COLORS.front}
           className="admin-wave-layer--front"
           duration="36s"
           delay="-4s"
-          stops={[
-            { offset: "0%", color: "hsl(270 78% 58%)", opacity: 0.14 },
-            { offset: "45%", color: "hsl(245 85% 55%)", opacity: 0.17 },
-            { offset: "100%", color: "hsl(215 90% 54%)", opacity: 0.12 },
-          ]}
         />
       </div>
     </div>

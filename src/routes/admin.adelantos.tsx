@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdelantosFiltersPanel } from "@/components/admin/adelantos-filters-panel";
 import { SolicitudDetalleDrawer } from "@/components/admin/solicitud-detalle-drawer";
+import { ComprobanteDialog } from "@/components/admin/comprobante-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -85,6 +86,7 @@ function AdelantosPage() {
   const [paying, setPaying] = useState<Adelanto | null>(null);
   const [rejecting, setRejecting] = useState<Adelanto | null>(null);
   const [viewingMotivo, setViewingMotivo] = useState<Adelanto | null>(null);
+  const [viewingComprobante, setViewingComprobante] = useState<Adelanto | null>(null);
   const [pendingEstado, setPendingEstado] = useState<{
     adelanto: Adelanto;
     nuevoEstado: EstadoAdelanto;
@@ -374,6 +376,7 @@ function AdelantosPage() {
                 <th className="admin-table-th text-right">Valor cuota</th>
                 <th className="admin-table-th text-right hidden sm:table-cell">Comisión</th>
                 <th className="admin-table-th text-center">Estado</th>
+                <th className="admin-table-th text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -396,7 +399,7 @@ function AdelantosPage() {
               })}
               {pendientesSolicitados.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="admin-table-empty py-8">
+                  <td colSpan={11} className="admin-table-empty py-8">
                     No hay solicitudes nuevas pendientes de respuesta.
                   </td>
                 </tr>
@@ -469,6 +472,9 @@ function AdelantosPage() {
                     onPay={a.estado === "aprobado" ? () => setPaying(a) : undefined}
                     onViewDetalle={() => setDetalleId(a.id)}
                     onViewMotivo={a.estado === "rechazado" ? () => setViewingMotivo(a) : undefined}
+                    onViewComprobante={
+                      a.estado === "pagado" ? () => setViewingComprobante(a) : undefined
+                    }
                   />
                 );
               })}
@@ -544,6 +550,16 @@ function AdelantosPage() {
         empresa={viewingMotivo ? empresas.find((x) => x.id === viewingMotivo.empresaId)?.nombre : undefined}
         onClose={() => setViewingMotivo(null)}
       />
+      <ComprobanteDialog
+        adelanto={viewingComprobante}
+        empresa={
+          viewingComprobante
+            ? empresas.find((x) => x.id === viewingComprobante.empresaId)?.nombre ??
+              viewingComprobante.empresaNombre
+            : undefined
+        }
+        onClose={() => setViewingComprobante(null)}
+      />
     </div>
   );
 }
@@ -561,6 +577,7 @@ type AdelantoRowProps = {
   onPay?: () => void;
   onViewDetalle?: () => void;
   onViewMotivo?: () => void;
+  onViewComprobante?: () => void;
 };
 
 function AdelantoCuotasCells({ desglose }: { desglose: DesgloseAdelanto }) {
@@ -615,6 +632,7 @@ function AdelantoRow({
   onPay,
   onViewDetalle,
   onViewMotivo,
+  onViewComprobante,
 }: AdelantoRowProps) {
   return (
     <tr
@@ -684,50 +702,58 @@ function AdelantoRow({
           )}
         </div>
       </td>
-      {!showQueue && (
-        <td>
-          <div className="flex justify-end gap-1.5">
-            {onViewDetalle && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-10"
-                onClick={onViewDetalle}
-                title="Ver detalle"
-              >
-                <FileText className="size-5" />
+      <td>
+        <div className="flex justify-end gap-1.5">
+          {onViewDetalle && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-10"
+              onClick={onViewDetalle}
+              title="Ver detalles operativos"
+              aria-label="Ver detalles de la solicitud"
+            >
+              <FileText className="size-5" />
+            </Button>
+          )}
+          {!showQueue && a.estado === "aprobado" && onView && onPay && (
+            <>
+              <Button size="icon" variant="ghost" className="size-10" onClick={onView} title="Ver cuenta">
+                <Eye className="size-5" />
               </Button>
-            )}
-            {a.estado === "aprobado" && onView && onPay && (
-              <>
-                <Button size="icon" variant="ghost" className="size-10" onClick={onView} title="Ver cuenta">
-                  <Eye className="size-5" />
-                </Button>
-                <Button size="sm" onClick={onPay} className="h-9 px-2 sm:px-3 text-sm">
-                  <Upload className="size-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Pagar</span>
-                </Button>
-              </>
-            )}
-            {a.estado === "pagado" && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-success font-medium">
-                <FileCheck2 className="size-4" /> Comprobante
-              </span>
-            )}
-            {a.estado === "rechazado" && onViewMotivo && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 px-2 sm:px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={onViewMotivo}
-              >
-                <MessageSquareText className="size-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">Motivo</span>
+              <Button size="sm" onClick={onPay} className="h-9 px-2 sm:px-3 text-sm">
+                <Upload className="size-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Pagar</span>
               </Button>
-            )}
-          </div>
-        </td>
-      )}
+            </>
+          )}
+          {!showQueue && a.estado === "pagado" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-9 px-2 sm:px-3 text-success hover:text-success hover:bg-success/10"
+              onClick={onViewComprobante}
+              disabled={!onViewComprobante}
+              title="Ver comprobante de pago"
+            >
+              <FileCheck2 className="size-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Comprobante</span>
+            </Button>
+          )}
+          {!showQueue && a.estado === "rechazado" && onViewMotivo && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-9 px-2 sm:px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={onViewMotivo}
+            >
+              <MessageSquareText className="size-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Motivo</span>
+            </Button>
+          )}
+        </div>
+      </td>
     </tr>
   );
 }

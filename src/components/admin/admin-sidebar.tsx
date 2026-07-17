@@ -74,12 +74,13 @@ export function AdminSidebar({
                       isActive={active}
                       tooltip={item.label}
                       className={cn(
-                        "app-sidebar-nav-button",
+                        "app-sidebar-nav-button !text-[15px]",
                         "data-[active=true]:!bg-transparent data-[active=true]:hover:!bg-transparent",
                         "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:border-l-0",
                         "group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0",
                         "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
                         "group-data-[collapsible=icon]:overflow-visible",
+                        "[&>svg]:!size-[15px]",
                         active && "app-sidebar-nav-button--active",
                       )}
                     >
@@ -94,7 +95,7 @@ export function AdminSidebar({
                         }}
                       >
                         <item.icon
-                          className="shrink-0 group-data-[collapsible=icon]:!size-5"
+                          className="!size-[15px] shrink-0 group-data-[collapsible=icon]:!size-5"
                           strokeWidth={active ? 2.35 : 2}
                         />
                         <span className="app-sidebar-nav-label group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -116,14 +117,15 @@ export function AdminSidebar({
               disabled={loggingOut}
               tooltip={loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
               className={cn(
-                "app-sidebar-nav-logout",
+                "app-sidebar-nav-logout !text-[15px]",
                 "group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:!size-10",
                 "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto",
                 "group-data-[collapsible=icon]:overflow-visible",
+                "[&>svg]:!size-[15px]",
               )}
             >
-              <LogOut className="shrink-0" strokeWidth={2} />
-              <span className="group-data-[collapsible=icon]:hidden">
+              <LogOut className="!size-[15px] shrink-0" strokeWidth={2} />
+              <span className="group-data-[collapsible=icon]:hidden text-[15px]">
                 {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}
               </span>
             </SidebarMenuButton>

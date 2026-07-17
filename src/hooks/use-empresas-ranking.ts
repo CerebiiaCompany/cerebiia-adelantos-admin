@@ -3,8 +3,8 @@ import { listarEmpresas } from "@/lib/api/empresas";
 import { ApiError } from "@/lib/api/errors";
 import type { EmpresaListItem } from "@/lib/api/types";
 
-/** Ranking de empresas por monto adelantado (usa stats de listar, sin vaciar solicitudes). */
-export function useEmpresasRanking() {
+/** Ranking de empresas por monto adelantado (usa stats de listar). */
+export function useEmpresasRanking(periodoKey: string) {
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,14 +13,21 @@ export function useEmpresasRanking() {
     setLoading(true);
     setError(null);
     try {
-      setEmpresas(await listarEmpresas());
+      const params =
+        periodoKey === "historico"
+          ? undefined
+          : (() => {
+              const [anio, mes] = periodoKey.split("-").map(Number);
+              return { mes, anio };
+            })();
+      setEmpresas(await listarEmpresas(params));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudieron cargar empresas.");
       setEmpresas([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [periodoKey]);
 
   useEffect(() => {
     void reload();

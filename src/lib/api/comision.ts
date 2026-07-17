@@ -35,6 +35,7 @@ export async function updateComision(
     numero_maximo_cuotas: current.numero_maximo_cuotas,
     plazo_maximo_dias: current.plazo_maximo_dias,
     tarifa_fija_por_cuota: tarifa,
+    monto_minimo: current.monto_minimo,
   });
 
   return comisionFromConfiguracion(updated);

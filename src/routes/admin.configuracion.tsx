@@ -35,6 +35,7 @@ function ConfiguracionPage() {
     porcentaje_maximo_adelanto: "",
     numero_maximo_cuotas: "",
     plazo_maximo_dias: "",
+    monto_minimo: "",
   });
   const [comisionForm, setComisionForm] = useState({ valor_comision: "" });
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,7 @@ function ConfiguracionPage() {
       porcentaje_maximo_adelanto: cfg.porcentaje_maximo_adelanto,
       numero_maximo_cuotas: String(cfg.numero_maximo_cuotas),
       plazo_maximo_dias: String(cfg.plazo_maximo_dias),
+      monto_minimo: tarifaToFormValue(cfg.monto_minimo),
     });
     const valor = comisionFromConfiguracion(cfg).valor_comision;
     setComisionForm({ valor_comision: valor });
@@ -95,6 +97,7 @@ function ConfiguracionPage() {
     numero_maximo_cuotas: Number(form.numero_maximo_cuotas),
     plazo_maximo_dias: Number(form.plazo_maximo_dias),
     tarifa_fija_por_cuota: tarifaToApiValue(comisionForm.valor_comision || "0"),
+    monto_minimo: tarifaToApiValue(form.monto_minimo || "0"),
   });
 
   const submit = async (e: React.FormEvent) => {
@@ -159,7 +162,7 @@ function ConfiguracionPage() {
       <AdminPageHeader
         eyebrow="Parámetros"
         title="Configuración de adelantos"
-        subtitle="Límites globales y tarifa fija por cuota (`tarifa_fija_por_cuota`) desde el backend."
+        subtitle="Límites globales, monto mínimo y tarifa fija por cuota desde el backend."
       />
 
       {loading ? (
@@ -174,7 +177,7 @@ function ConfiguracionPage() {
               <div>
                 <h2 className="admin-section-title text-lg">Límites de adelanto</h2>
                 <p className="admin-section-subtitle text-base mt-1">
-                  Porcentaje, cuotas y plazo máximo para solicitudes.
+                  Porcentaje, cuotas, plazo y monto mínimo para solicitudes.
                 </p>
               </div>
 
@@ -189,7 +192,7 @@ function ConfiguracionPage() {
                 </p>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
                 <div className="space-y-1.5">
                   <Label htmlFor="porcentaje">% máximo adelanto</Label>
                   <Input
@@ -203,6 +206,22 @@ function ConfiguracionPage() {
                     onChange={(e) => setForm({ ...form, porcentaje_maximo_adelanto: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">Entre 0.01 y 100.00</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="monto-minimo">Monto mínimo (COP)</Label>
+                  <Input
+                    id="monto-minimo"
+                    required
+                    type="number"
+                    step="1"
+                    min="0"
+                    inputMode="numeric"
+                    value={form.monto_minimo}
+                    onChange={(e) =>
+                      setForm({ ...form, monto_minimo: e.target.value.replace(/[^\d]/g, "") })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">Valor mínimo que puede solicitar un empleado</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="cuotas">Máx. cuotas</Label>
@@ -339,6 +358,7 @@ function ConfiguracionPage() {
                   <tr>
                     <th className="admin-table-th text-left">Fecha</th>
                     <th className="admin-table-th text-right">% adelanto</th>
+                    <th className="admin-table-th text-right">Monto mín.</th>
                     <th className="admin-table-th text-right">Cuotas</th>
                     <th className="admin-table-th text-right">Plazo (días)</th>
                     <th className="admin-table-th text-right">Tarifa/cuota</th>
@@ -355,6 +375,9 @@ function ConfiguracionPage() {
                         })}
                       </td>
                       <td className="text-right tabular font-medium">{row.porcentaje_maximo_adelanto}%</td>
+                      <td className="text-right tabular">
+                        {tarifaToFormValue(row.monto_minimo ?? "0")} COP
+                      </td>
                       <td className="text-right tabular">{row.numero_maximo_cuotas}</td>
                       <td className="text-right tabular">{row.plazo_maximo_dias}</td>
                       <td className="text-right tabular">
@@ -367,7 +390,7 @@ function ConfiguracionPage() {
                   ))}
                   {historial.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="admin-table-empty">
+                      <td colSpan={7} className="admin-table-empty">
                         Aún no hay cambios registrados en el historial.
                       </td>
                     </tr>

@@ -25,8 +25,14 @@ function buildQuery(params?: Record<string, string | number | undefined>): strin
   return s ? `?${s}` : "";
 }
 
-export function getDashboardAdelantos() {
-  return apiRequest<DashboardAdelantosApi>("/adelantos/admin/dashboard/", { auth: true });
+export function getDashboardAdelantos(params?: { mes?: number; anio?: number }) {
+  return apiRequest<DashboardAdelantosApi>(
+    `/adelantos/admin/dashboard/${buildQuery({
+      mes: params?.mes,
+      anio: params?.anio,
+    })}`,
+    { auth: true },
+  );
 }
 
 export function listSolicitudesAdmin(params?: ListSolicitudesAdminParams) {
