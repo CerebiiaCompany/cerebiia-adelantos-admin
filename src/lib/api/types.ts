@@ -169,6 +169,65 @@ export type ListControlPagosParams = {
   empresa_id?: string;
 };
 
+/** `GET /admin/referencia-nomina/?empresa_id=&periodo=` */
+export interface ReferenciaNominaDetalleApi {
+  inicio_periodo: string;
+  fin_periodo: string;
+  numero_documento: string;
+  nombre: string;
+  apellido: string;
+  solicitud_id: string;
+  cuota_numero: number;
+  total_cuotas: number;
+  fecha_corte: string;
+  monto_a_descontar: string;
+  monto_solicitud: string;
+  tarifa_cuota: string;
+  tarifa_total_solicitud: string;
+  estado_cuota: string;
+}
+
+export interface ReferenciaNominaResumenApi {
+  inicio_periodo: string;
+  fin_periodo: string;
+  numero_documento: string;
+  nombre: string;
+  apellido: string;
+  cantidad_adelantos: number;
+  total_cuotas: number;
+  /** Desglose por adelanto, ej. "1+1+2". */
+  detalle_cuotas: string;
+  total_costo_servicio: string;
+  /** Monto solicitado − comisión (tarifa × cuotas). */
+  total_neto_transferido: string;
+  total_solicitado: string;
+  total_a_descontar_mes: string;
+  total_a_pagar_proveedor: string;
+}
+
+export interface ReferenciaNominaTotalesApi {
+  cantidad_adelantos: number;
+  total_cuotas: number;
+  total_costo_servicio: string;
+  total_neto_transferido: string;
+  total_solicitado: string;
+  total_a_descontar_mes: string;
+  total_a_pagar_proveedor: string;
+}
+
+export interface ReferenciaNominaApi {
+  empresa_id: string;
+  empresa_nombre: string;
+  empresa_nit: string;
+  periodo: string;
+  inicio_periodo: string;
+  fin_periodo: string;
+  detalle: ReferenciaNominaDetalleApi[];
+  resumen: ReferenciaNominaResumenApi[];
+  total_a_descontar: string;
+  totales: ReferenciaNominaTotalesApi;
+}
+
 /** Ítem de auditoría admin (`GET /admin/auditoria/`). */
 export interface AuditoriaAdminItem {
   id: string;

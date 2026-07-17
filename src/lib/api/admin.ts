@@ -10,6 +10,7 @@ import type {
   ListCuentasCobroParams,
   ListHistorialAdelantosParams,
   ListadoAuditoriaApi,
+  ReferenciaNominaApi,
 } from "./types";
 
 function buildQuery(params?: Record<string, string | number | undefined>): string {
@@ -29,6 +30,17 @@ export function getControlPagos(params: ListControlPagosParams) {
       mes: params.mes,
       anio: params.anio,
       empresa_id: params.empresa_id,
+    })}`,
+    { auth: true },
+  );
+}
+
+/** Referencia de descuentos de nómina (detalle por cuota + resumen por empleado). */
+export function getReferenciaNomina(params: { empresa_id: string; periodo: string }) {
+  return apiRequest<ReferenciaNominaApi>(
+    `/admin/referencia-nomina/${buildQuery({
+      empresa_id: params.empresa_id,
+      periodo: params.periodo,
     })}`,
     { auth: true },
   );

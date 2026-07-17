@@ -5,6 +5,7 @@ import {
   adjuntarDocumentoCobro,
   crearCuentaCobro,
   getControlPagos,
+  getReferenciaNomina,
   listCuentasCobro,
   rechazarEvidenciaCobro,
   registrarEvidenciaCobro,
@@ -19,6 +20,7 @@ import type {
   EstadoCuentaCobroApi,
 } from "@/lib/api/types";
 import { estadoCuentaCobroLabel, ESTADO_CUENTA_COBRO_CLASSES } from "@/lib/cuenta-cobro";
+import { exportReferenciaNominaExcel } from "@/lib/export-referencia-nomina-excel";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Landmark, Loader2, Banknote, ListChecks, FileUp } from "lucide-react";
+import { Building2, Landmark, Loader2, Banknote, ListChecks, FileUp, FileSpreadsheet } from "lucide-react";
 
 export const Route = createFileRoute("/admin/control-pagos")({
   head: () => ({ meta: [{ title: "Control de pagos — Panel" }] }),
@@ -162,14 +164,54 @@ function ControlPagosPage() {
     }
   }
 
+  async function descargarReferenciaNomina(empresaId: string, empresaNombre: string) {
+    if (!selected) return;
+    const key = `excel:${empresaId}`;
+    setActionKey(key);
+    setError(null);
+    try {
+      const data = await getReferenciaNomina({
+        empresa_id: empresaId,
+        periodo: selected.value,
+      });
+      if (!data.detalle.length && !data.resumen.length) {
+        setError(
+          `No hay cuotas de nómina para ${empresaNombre} en ${selected.label}. Solo se incluyen adelantos pagados con corte en este periodo.`,
+        );
+        return;
+      }
+      exportReferenciaNominaExcel(data);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo generar la referencia de nómina.",
+      );
+    } finally {
+      setActionKey(null);
+    }
+  }
+
   function onCrear(row: ControlPagoEmpresaApi) {
     if (!selected) return;
-    void runAction(`crear:${row.empresa_id}`, () =>
-      crearCuentaCobro({
+    void runAction(`crear:${row.empresa_id}`, async () => {
+      await crearCuentaCobro({
         empresa_id: row.empresa_id,
         periodo: selected.value,
-      }),
-    );
+      });
+      // Al crear la cuenta, descarga el Excel de descuentos de nómina del periodo.
+      try {
+        const data = await getReferenciaNomina({
+          empresa_id: row.empresa_id,
+          periodo: selected.value,
+        });
+        if (data.detalle.length || data.resumen.length) {
+          exportReferenciaNominaExcel(data);
+        }
+      } catch {
+        // La cuenta ya se creó; el Excel es complementario.
+      }
+    });
   }
 
   function onVerificar(cuenta: CuentaCobroApi) {
@@ -188,7 +230,7 @@ function ControlPagosPage() {
       <AdminPageHeader
         eyebrow="Operaciones"
         title="Control de pagos"
-        subtitle="Resumen mensual por empresa y flujo de cuentas de cobro: documento, evidencia, verificación o rechazo."
+        subtitle="Resumen mensual por empresa y cuentas de cobro. Al crear una cuenta se genera el Excel de referencia de nómina (multi-cuota) para que la empresa sepa cuánto descontar a cada empleado."
       />
 
       {error && (
@@ -335,6 +377,24 @@ function ControlPagosPage() {
                     </td>
                     <td className="text-right">
                       <div className="flex flex-wrap justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!!busy}
+                          title="Descargar Excel de descuentos de nómina del periodo"
+                          onClick={() =>
+                            void descargarReferenciaNomina(row.empresa_id, row.empresa_nombre)
+                          }
+                        >
+                          {actionKey === `excel:${row.empresa_id}` ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <FileSpreadsheet className="size-3.5 sm:mr-1.5" />
+                              <span className="hidden sm:inline">Excel nómina</span>
+                            </>
+                          )}
+                        </Button>
                         {!cuenta && Number(row.total_pagado) > 0 && (
                           <Button
                             size="sm"
