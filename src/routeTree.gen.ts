@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as AdminLogrosRouteImport } from './routes/admin.logros'
 import { Route as AdminHistorialAdelantosRouteImport } from './routes/admin.historial-adelantos'
 import { Route as AdminEmpresasRouteImport } from './routes/admin.empresas'
 import { Route as AdminControlPagosRouteImport } from './routes/admin.control-pagos'
@@ -44,6 +45,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLogrosRoute = AdminLogrosRouteImport.update({
+  id: '/logros',
+  path: '/logros',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/admin/control-pagos': typeof AdminControlPagosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/logros': typeof AdminLogrosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/admin/control-pagos': typeof AdminControlPagosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/logros': typeof AdminLogrosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/admin/control-pagos': typeof AdminControlPagosRoute
   '/admin/empresas': typeof AdminEmpresasRoute
   '/admin/historial-adelantos': typeof AdminHistorialAdelantosRoute
+  '/admin/logros': typeof AdminLogrosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/admin/control-pagos'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/logros'
     | '/admin/usuarios'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/admin/control-pagos'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/logros'
     | '/admin/usuarios'
     | '/admin'
   id:
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/admin/control-pagos'
     | '/admin/empresas'
     | '/admin/historial-adelantos'
+    | '/admin/logros'
     | '/admin/usuarios'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -198,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/admin/usuarios'
       preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/logros': {
+      id: '/admin/logros'
+      path: '/logros'
+      fullPath: '/admin/logros'
+      preLoaderRoute: typeof AdminLogrosRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/historial-adelantos': {
@@ -252,6 +271,7 @@ interface AdminRouteChildren {
   AdminControlPagosRoute: typeof AdminControlPagosRoute
   AdminEmpresasRoute: typeof AdminEmpresasRoute
   AdminHistorialAdelantosRoute: typeof AdminHistorialAdelantosRoute
+  AdminLogrosRoute: typeof AdminLogrosRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -263,6 +283,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminControlPagosRoute: AdminControlPagosRoute,
   AdminEmpresasRoute: AdminEmpresasRoute,
   AdminHistorialAdelantosRoute: AdminHistorialAdelantosRoute,
+  AdminLogrosRoute: AdminLogrosRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

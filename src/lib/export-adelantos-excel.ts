@@ -75,6 +75,12 @@ function buildRow(
   empresa: Empresa | undefined,
   desglose: DesgloseAdelanto | undefined,
 ): Record<ColumnKey, string | number> {
+  const isGratis =
+    desglose?.esGratis ||
+    desglose?.valorComision === 0 ||
+    (a.montoNeto != null && a.montoNeto >= a.monto) ||
+    a.tarifaTotal === 0;
+
   return {
     "Fecha solicitud": formatFecha(a.fechaSolicitud),
     Empleado: a.empleadoNombre,
@@ -82,12 +88,12 @@ function buildRow(
     Empresa: empresa?.nombre ?? "",
     NIT: empresa?.nit ?? "",
     "Monto solicitado": desglose?.montoSolicitado ?? a.monto,
-    "Total a recibir": desglose?.totalARecibir ?? a.monto,
+    "Total a recibir": a.montoNeto ?? desglose?.totalARecibir ?? a.monto,
     Cuotas: desglose?.numeroCuotas ?? a.numeroCuotas,
     "Modo de pago": modoPagoLabel(desglose?.numeroCuotas ?? a.numeroCuotas),
     "Valor cuota": desglose?.valorCuota ?? "",
-    "Tarifa comisión": desglose?.tarifaComision ?? "",
-    "Comisión total": desglose?.valorComision ?? "",
+    "Tarifa comisión": isGratis ? 0 : (desglose?.tarifaComision ?? 0),
+    "Comisión total": isGratis ? 0 : (desglose?.valorComision ?? 0),
     Estado: estadoLabel[a.estado],
     Banco: a.cuenta.banco,
     "Tipo cuenta": a.cuenta.tipo,
@@ -100,14 +106,19 @@ function buildRow(
 export function exportAdelantosExcel(
   adelantos: Adelanto[],
   empresas: Empresa[],
-  calcular?: (monto: number, numeroCuotas: number) => DesgloseAdelanto,
+  calcular?: (
+    monto: number,
+    numeroCuotas: number,
+    montoNeto?: number,
+    tarifaTotal?: number,
+  ) => DesgloseAdelanto,
   filenamePrefix = "adelantos",
 ): void {
   if (!adelantos.length) return;
 
   const rows = adelantos.map((a) => {
     const empresa = empresas.find((e) => e.id === a.empresaId);
-    const desglose = calcular?.(a.monto, a.numeroCuotas);
+    const desglose = calcular?.(a.monto, a.numeroCuotas, a.montoNeto, a.tarifaTotal);
     return { adelanto: a, desglose, data: buildRow(a, empresa, desglose) };
   });
 

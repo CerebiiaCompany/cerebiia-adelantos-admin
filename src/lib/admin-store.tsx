@@ -96,6 +96,10 @@ export type Adelanto = {
   monto: number;
   /** Neto que recibe el empleado (desde API: monto_neto). */
   montoNeto?: number;
+  /** Tarifa total de comisión (desde API: tarifa_total). */
+  tarifaTotal?: number;
+  /** Tarifa fija de comisión por cuota (desde API: tarifa_cuota). */
+  tarifaComision?: number;
   numeroCuotas: number;
   fechaSolicitud: string; // ISO
   estado: EstadoAdelanto;

@@ -76,6 +76,7 @@ export function solicitudListItemToAdelanto(s: SolicitudAdminListItem): Adelanto
         s.estado === "rechazado" ? (s.decidido_en ?? undefined) : undefined,
       comprobanteUrl: resolveComprobanteUrl(s.comprobante_pago_url),
       fechaPago: s.pagado_en ?? undefined,
+      tarifaTotal: s.tarifa_total != null && s.tarifa_total !== "" ? Number(s.tarifa_total) : undefined,
     },
   );
 }
@@ -119,6 +120,7 @@ export function solicitudApiToAdelanto(s: SolicitudAdelantoApi): Adelanto {
       motivoRechazo: s.motivo_rechazo ?? undefined,
       comprobanteUrl: resolveComprobanteUrl(s.comprobante_pago_url, s.comprobante_pago),
       fechaPago: s.pagado_en ?? undefined,
+      tarifaTotal: s.tarifa_total != null && s.tarifa_total !== "" ? Number(s.tarifa_total) : undefined,
     },
   );
 }

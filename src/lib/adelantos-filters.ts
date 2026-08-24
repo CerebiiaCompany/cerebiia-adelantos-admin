@@ -65,8 +65,12 @@ export function useAdelantosFilters(
       .filter((a) => serverFiltered || inDateRange(a.fechaSolicitud, fechaDesde, fechaHasta))
       .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
       .filter((a) => {
-        if (estado !== "all") return serverFiltered ? true : a.estado === estado;
-        if (defaultEstados) return defaultEstados.includes(a.estado);
+        if (estado !== "all") {
+          return a.estado === estado;
+        }
+        if (defaultEstados && defaultEstados.length > 0) {
+          return defaultEstados.includes(a.estado);
+        }
         return true;
       });
 

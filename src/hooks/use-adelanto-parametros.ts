@@ -44,8 +44,20 @@ export function useAdelantoParametros() {
   }, [reload]);
 
   const calcular = useCallback(
-    (monto: number, numeroCuotas: number): DesgloseAdelanto =>
-      calcularDesgloseAdelanto(monto, numeroCuotas, valorComision, numeroMaximoCuotas),
+    (
+      monto: number,
+      numeroCuotas: number,
+      montoNetoReal?: number,
+      tarifaTotalReal?: number,
+    ): DesgloseAdelanto =>
+      calcularDesgloseAdelanto(
+        monto,
+        numeroCuotas,
+        valorComision,
+        numeroMaximoCuotas,
+        montoNetoReal,
+        tarifaTotalReal,
+      ),
     [valorComision, numeroMaximoCuotas],
   );
 

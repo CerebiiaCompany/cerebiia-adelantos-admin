@@ -17,6 +17,8 @@ export interface User {
   role: UserRole;
   created_at: string;
   updated_at: string;
+  must_change_password?: boolean;
+  empresa_nombre?: string | null;
   /** Presente en `GET /users/` enriquecido; `null` si no es rol empresa. */
   empresa?: UserEmpresaResumen | null;
   /** Empleados de la empresa asociada (0 si no aplica). */
@@ -330,6 +332,8 @@ export type ListHistorialAdelantosParams = {
 
 export type SuspenderEmpresaResponse = ReactivarEmpresaResponse;
 
+export type ConfiguracionOrigen = "empresa" | "empleado" | "global";
+
 export interface ConfiguracionGlobal {
   porcentaje_maximo_adelanto: string;
   numero_maximo_cuotas: number;
@@ -337,6 +341,10 @@ export interface ConfiguracionGlobal {
   tarifa_fija_por_cuota: string;
   monto_minimo: string;
   updated_at: string;
+  origen?: ConfiguracionOrigen;
+  porcentaje_global?: string;
+  empresa_id?: string | null;
+  empresa_nombre?: string | null;
 }
 
 export interface UpdateConfiguracionPayload {
@@ -355,7 +363,31 @@ export interface HistorialConfiguracion {
   tarifa_fija_por_cuota: string;
   monto_minimo: string;
   actualizado_por: string | null;
+  actualizado_a?: string | null;
+  aplica_a?: string | null;
+  empresa_id?: string | null;
+  empresa_nombre?: string | null;
+  empleado_id?: string | null;
+  empleado_nombre?: string | null;
   timestamp: string;
+}
+
+export interface ConfiguracionPersonalizada {
+  id: string;
+  empresa_id: string;
+  empresa_nombre?: string | null;
+  empleado_id?: string | null;
+  empleado_nombre?: string | null;
+  empleado_documento?: string | null;
+  porcentaje_maximo_adelanto: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface SaveConfiguracionPersonalizadaPayload {
+  empresa_id: string;
+  empleado_id?: string | null;
+  porcentaje_maximo_adelanto: string;
 }
 
 export type EstadoSolicitudApi =
@@ -592,3 +624,6 @@ export interface Comision {
 export interface UpdateComisionPayload {
   valor_comision: string;
 }
+
+export type CreateConfiguracionPersonalizadaPayload = SaveConfiguracionPersonalizadaPayload;
+

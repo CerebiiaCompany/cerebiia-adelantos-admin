@@ -20,6 +20,9 @@ export function comisionAdelantoPagado(
     adelanto.monto,
     adelanto.numeroCuotas,
     valorComision,
+    undefined,
+    adelanto.montoNeto,
+    adelanto.tarifaTotal,
   ).valorComision;
 }
 

@@ -15,6 +15,7 @@ import {
   Landmark,
   LayoutDashboard,
   Settings,
+  Trophy,
   Users,
   Wallet,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const nav: AdminNavItem[] = [
   { to: "/admin/control-pagos", label: "Control de pagos", icon: Landmark },
   { to: "/admin/auditorias", label: "Auditorías", icon: ClipboardList },
   { to: "/admin/historial-adelantos", label: "Historial de adelantos", icon: History },
+  { to: "/admin/logros", label: "Logros", icon: Trophy },
   { to: "/admin/configuracion", label: "Configuración", icon: Settings },
 ];
 

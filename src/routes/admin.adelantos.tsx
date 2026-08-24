@@ -115,6 +115,7 @@ function AdelantosPage() {
   const filters = useAdelantosFilters(adelantos, empresas, {
     sortOrder: "asc",
     serverFiltered: true,
+    defaultEstados: ["en_revision", "aprobado"],
   });
 
   const {
@@ -312,8 +313,9 @@ function AdelantosPage() {
     () =>
       adelantos
         .filter((a) => a.estado === "solicitado")
+        .filter((a) => (empresaId === "all" ? true : a.empresaId === empresaId))
         .sort((a, b) => +new Date(a.fechaSolicitud) - +new Date(b.fechaSolicitud)),
-    [adelantos],
+    [adelantos, empresaId],
   );
 
   const moduleStats = useMemo(() => {
@@ -460,7 +462,7 @@ function AdelantosPage() {
                       queueIndex={index + 1}
                       showQueue
                       showFecha
-                      desglose={calcular(a.monto, a.numeroCuotas)}
+                      desglose={calcular(a.monto, a.numeroCuotas, a.montoNeto, a.tarifaTotal)}
                       onViewDetalle={() => setDetalleId(a.id)}
                       onEstadoChange={(v) => requestEstadoChange(a, v)}
                     />
@@ -528,7 +530,7 @@ function AdelantosPage() {
                     key={a.id}
                     adelanto={a}
                     empresaNombre={empresaNombre}
-                    desglose={calcular(a.monto, a.numeroCuotas)}
+                    desglose={calcular(a.monto, a.numeroCuotas, a.montoNeto, a.tarifaTotal)}
                     allowedEstados={["aprobado", "rechazado"]}
                     onEstadoChange={(v) => requestEstadoChange(a, v)}
                     onView={a.estado === "aprobado" ? () => setViewing(a) : undefined}
@@ -594,7 +596,7 @@ function AdelantosPage() {
       />
       <PagoDialog
         adelanto={paying}
-        desglose={paying ? calcular(paying.monto, paying.numeroCuotas) : null}
+        desglose={paying ? calcular(paying.monto, paying.numeroCuotas, paying.montoNeto, paying.tarifaTotal) : null}
         onClose={() => setPaying(null)}
         onPagar={async (file) => {
           if (paying) await handleMarcarPagado(paying.id, file);
@@ -644,6 +646,8 @@ type AdelantoRowProps = {
 };
 
 function AdelantoCuotasCells({ desglose }: { desglose: DesgloseAdelanto }) {
+  const isGratis = desglose.esGratis || desglose.valorComision === 0;
+
   return (
     <>
       <td className="text-center">
@@ -665,16 +669,33 @@ function AdelantoCuotasCells({ desglose }: { desglose: DesgloseAdelanto }) {
           {desglose.numeroCuotas} × sobre monto solicitado
         </div>
         <div className="admin-table-cell-note sm:hidden tabular mt-0.5">
-          Com. {formatCOP(desglose.valorComision)}
+          {isGratis ? (
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">Com. Gratis</span>
+          ) : (
+            `Com. ${formatCOP(desglose.valorComision)}`
+          )}
         </div>
       </td>
       <td className="hidden sm:table-cell text-right">
-        <div className="admin-table-cell-money tabular text-muted-foreground">
-          {formatCOP(desglose.valorComision)}
-        </div>
-        <div className="admin-table-cell-note tabular">
-          {formatCOP(desglose.tarifaComision)} × {desglose.numeroCuotas} cuota(s)
-        </div>
+        {isGratis ? (
+          <div className="flex flex-col items-end">
+            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              Gratis
+            </span>
+            <span className="admin-table-cell-note tabular text-emerald-600/80 dark:text-emerald-400/80 text-[11px] mt-0.5">
+              1er adelanto ($0)
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="admin-table-cell-money tabular text-muted-foreground">
+              {formatCOP(desglose.valorComision)}
+            </div>
+            <div className="admin-table-cell-note tabular">
+              {formatCOP(desglose.tarifaComision)} × {desglose.numeroCuotas} cuota(s)
+            </div>
+          </>
+        )}
       </td>
     </>
   );
@@ -1462,7 +1483,11 @@ function PagoDialog({
                   <div>
                     <p className="hidden sm:block text-xs text-muted-foreground">Total a recibir</p>
                     <p className="text-base sm:text-lg font-bold tabular text-primary">
-                      {desglose ? formatCOP(desglose.totalARecibir) : formatCOP(adelanto.monto)}
+                      {adelanto.montoNeto != null && adelanto.montoNeto > 0
+                        ? formatCOP(adelanto.montoNeto)
+                        : desglose
+                          ? formatCOP(desglose.totalARecibir)
+                          : formatCOP(adelanto.monto)}
                     </p>
                     {desglose && (
                       <p className="text-[11px] text-muted-foreground tabular mt-0.5">
@@ -1484,12 +1509,23 @@ function PagoDialog({
                   </div>
                   <div>
                     <p className="text-muted-foreground">Comisión total</p>
-                    <p className="font-semibold tabular mt-0.5">
-                      {formatCOP(desglose.valorComision)}{" "}
-                      <span className="font-normal text-muted-foreground">
-                        ({formatCOP(desglose.tarifaComision)} × {desglose.numeroCuotas})
-                      </span>
-                    </p>
+                    {desglose.esGratis || desglose.valorComision === 0 ? (
+                      <div className="mt-0.5">
+                        <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Gratis ($0)
+                        </span>
+                        <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                          1er adelanto gratis
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="font-semibold tabular mt-0.5">
+                        {formatCOP(desglose.valorComision)}{" "}
+                        <span className="font-normal text-muted-foreground">
+                          ({formatCOP(desglose.tarifaComision)} × {desglose.numeroCuotas})
+                        </span>
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-muted-foreground">Monto solicitado</p>

@@ -252,11 +252,8 @@ function LoginPage() {
 
         <div className="relative w-full max-w-[440px]">
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div
-              className="size-11 rounded-xl grid place-items-center text-white text-lg font-bold shadow-sm"
-              style={{ background: BRAND_GRADIENT }}
-            >
-              A
+            <div className="size-11 rounded-xl flex items-center justify-center p-2 bg-card border border-border shadow-sm overflow-hidden">
+              <img src="/favicon.png" alt="AdeCerebiia" className="size-full object-contain" />
             </div>
             <span className="login-brand-name font-display text-foreground">AdeCerebiia</span>
           </div>

@@ -47,8 +47,18 @@ export function AdminSidebar({
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="app-sidebar-header gap-0 p-0">
         <div className="app-sidebar-brand-row">
-          <div className="app-sidebar-brand-icon" style={{ background: BRAND_GRADIENT }}>
-            A
+          <div className="app-sidebar-brand-icon flex items-center justify-center p-1.5 bg-card/40 border border-sidebar-border/50 shadow-sm overflow-hidden rounded-xl">
+            <img
+              src="/favicon.png"
+              alt="AdeCerebiia"
+              className="size-full object-contain"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                if (!target.src.endsWith("/favicon.ico")) {
+                  target.src = "/favicon.ico";
+                }
+              }}
+            />
           </div>
           <div className="min-w-0 flex flex-col justify-center group-data-[collapsible=icon]:hidden">
             <p className="app-sidebar-brand-title text-gradient truncate">AdeCerebiia</p>

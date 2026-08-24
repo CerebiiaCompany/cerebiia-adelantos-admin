@@ -46,11 +46,18 @@ export function calcularMontoCobroAdelanto(
   adelanto: Adelanto,
   valorComision: string | number,
 ): { montoPagado: number; montoComision: number; montoTotalCobrar: number } {
-  const d = calcularDesgloseAdelanto(adelanto.monto, adelanto.numeroCuotas, valorComision);
+  const d = calcularDesgloseAdelanto(
+    adelanto.monto,
+    adelanto.numeroCuotas,
+    valorComision,
+    undefined,
+    adelanto.montoNeto,
+    adelanto.tarifaTotal,
+  );
   return {
     montoPagado: d.totalARecibir,
     montoComision: d.valorComision,
-    montoTotalCobrar: d.totalARecibir + d.valorComision,
+    montoTotalCobrar: d.montoSolicitado,
   };
 }
 

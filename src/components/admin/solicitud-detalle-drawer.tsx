@@ -217,7 +217,7 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
               </p>
             </div>
 
-            <dl className="grid grid-cols-2 gap-3">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
                 <dt className={labelClass}>Monto solicitado</dt>
                 <dd className={valueClass}>{formatCOP(Number(detalle.monto))}</dd>
@@ -226,6 +226,23 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                 <dt className={labelClass}>Monto neto</dt>
                 <dd className={cn(valueClass, "text-primary")}>
                   {formatCOP(Number(detalle.monto_neto))}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelClass}>Comisión</dt>
+                <dd className={valueClass}>
+                  {Number(detalle.monto_neto) >= Number(detalle.monto) ||
+                  (detalle.tarifa_total != null && Number(detalle.tarifa_total) === 0) ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      Gratis ($0)
+                    </span>
+                  ) : (
+                    formatCOP(
+                      detalle.tarifa_total != null
+                        ? Number(detalle.tarifa_total)
+                        : Math.max(0, Number(detalle.monto) - Number(detalle.monto_neto)),
+                    )
+                  )}
                 </dd>
               </div>
               <div>
