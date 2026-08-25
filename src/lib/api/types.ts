@@ -91,6 +91,8 @@ export interface EmpresaListItem {
   total_empleados: number;
   total_solicitudes: number;
   monto_total_adelantado: string;
+  porcentaje_maximo_adelanto?: number | string | null;
+  es_porcentaje_personalizado?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -375,20 +377,22 @@ export interface HistorialConfiguracion {
 export interface ConfiguracionPersonalizada {
   id: string;
   empresa_id: string;
-  empresa_nombre?: string | null;
-  empleado_id?: string | null;
-  empleado_nombre?: string | null;
-  empleado_documento?: string | null;
-  porcentaje_maximo_adelanto: string;
-  created_at?: string | null;
-  updated_at?: string | null;
+  empresa_nombre: string;
+  empleado_id: string | null;
+  empleado_nombre: string | null;
+  empleado_documento: string | null;
+  porcentaje_maximo_adelanto: number | string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface SaveConfiguracionPersonalizadaPayload {
+export interface GuardarConfiguracionPersonalizadaPayload {
   empresa_id: string;
   empleado_id?: string | null;
-  porcentaje_maximo_adelanto: string;
+  porcentaje_maximo_adelanto: number | string;
 }
+
+export type SaveConfiguracionPersonalizadaPayload = GuardarConfiguracionPersonalizadaPayload;
 
 export type EstadoSolicitudApi =
   | "solicitado"
@@ -591,6 +595,10 @@ export interface EmpleadoAdminApi {
   empresa_id: string;
   empresa_nombre?: string;
   saldo_disponible: string;
+  porcentaje_maximo_adelanto?: number | string | null;
+  porcentaje_efectivo?: number | string | null;
+  es_porcentaje_personalizado?: boolean;
+  origen_porcentaje?: "empleado" | "empresa" | "global";
   created_at: string;
   updated_at: string;
 }

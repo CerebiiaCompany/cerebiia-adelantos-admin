@@ -5,6 +5,7 @@ import type { AuthUser } from "@/lib/api/types";
 import { AdminStoreProvider } from "@/lib/admin-store";
 import { NotificationProvider } from "@/lib/notifications/notification-store";
 import { NotificationToastContainer } from "@/components/admin/notification-toast-container";
+import { Toaster } from "@/components/ui/sonner";
 import { AdminBackground } from "@/components/admin/admin-background";
 import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
@@ -129,6 +130,7 @@ function AdminLayout() {
         </SidebarProvider>
       </AdminStoreProvider>
       <NotificationToastContainer />
+      <Toaster position="top-right" richColors />
     </NotificationProvider>
   );
 }

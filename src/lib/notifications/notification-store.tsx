@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { AdminNotification, NotificationCategory } from "./types";
@@ -70,7 +71,7 @@ function saveStoredNotifications(list: AdminNotification[]) {
 function saveDismissedIds(set: Set<string>) {
   if (typeof window === "undefined") return;
   try {
-    const arr = Array.from(set).slice(-500); // guardar últimas 500
+    const arr = Array.from(set).slice(-500);
     localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(arr));
   } catch {
     /* ignore */
@@ -83,6 +84,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(isSoundEnabled);
   const [activeToast, setActiveToast] = useState<AdminNotification | null>(null);
 
+  const initialSyncDoneRef = useRef(false);
+  const seenSolicitudKeysRef = useRef<Set<string>>(new Set());
+
   // Guardar en localStorage
   useEffect(() => {
     saveStoredNotifications(notifications);
@@ -92,7 +96,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     saveDismissedIds(dismissedIds);
   }, [dismissedIds]);
 
-  // Manejar llegada de una nueva notificación
+  // Manejar llegada de una nueva notificación en vivo
   const handleIncomingNotification = useCallback(
     (notif: AdminNotification) => {
       if (dismissedIds.has(notif.id)) return;
@@ -111,20 +115,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [dismissedIds],
   );
 
-  // Suscripción al WebSocket en tiempo real
-  useEffect(() => {
-    const unsubscribe = notificationWsClient.subscribe(handleIncomingNotification);
-    return () => {
-      unsubscribe();
-    };
-  }, [handleIncomingNotification]);
-
-  // Sincronizar y generar notificaciones reales basadas en datos actuales del backend
+  // Sincronizar con datos reales del backend
   const syncWithBackendData = useCallback(async () => {
     if (!isLoggedIn()) return;
 
     try {
       const realNotifs: AdminNotification[] = [];
+      const newDiscoveredNotifs: AdminNotification[] = [];
 
       // 1. Obtener solicitudes de adelanto
       try {
@@ -143,8 +140,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             sol.estado === "en_revision"
           ) {
             const notifId = `sol_pend_${sol.id}`;
-            if (!dismissedIds.has(notifId)) {
-              realNotifs.push({
+            const isDismissed = dismissedIds.has(notifId);
+
+            if (!isDismissed) {
+              const notifObj: AdminNotification = {
                 id: notifId,
                 tipo: "solicitud_creada",
                 categoria: "adelantos",
@@ -155,8 +154,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 link: "/admin/adelantos",
                 prioridad: "alta",
                 data: { solicitud_id: sol.id, monto: sol.monto },
-              });
+              };
+              realNotifs.push(notifObj);
+
+              // Si ya se hizo la carga inicial y esta solicitud no se había visto antes:
+              if (initialSyncDoneRef.current && !seenSolicitudKeysRef.current.has(notifId)) {
+                newDiscoveredNotifs.push(notifObj);
+              }
             }
+            seenSolicitudKeysRef.current.add(notifId);
           }
 
           // Solicitudes aprobadas sin comprobante de pago
@@ -166,7 +172,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           ) {
             const notifId = `sol_pago_${sol.id}`;
             if (!dismissedIds.has(notifId)) {
-              realNotifs.push({
+              const notifObj: AdminNotification = {
                 id: notifId,
                 tipo: "adelanto_sin_pago",
                 categoria: "pagos",
@@ -177,20 +183,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 link: "/admin/control-pagos",
                 prioridad: "urgente",
                 data: { solicitud_id: sol.id, monto: sol.monto },
-              });
+              };
+              realNotifs.push(notifObj);
+
+              if (initialSyncDoneRef.current && !seenSolicitudKeysRef.current.has(notifId)) {
+                newDiscoveredNotifs.push(notifObj);
+              }
             }
+            seenSolicitudKeysRef.current.add(notifId);
           }
         }
       } catch {
         /* ignore api fetch errors */
       }
 
-      // 2. Obtener empresas activas / con nómina
+      // 2. Obtener empresas activas
       try {
         const empList = await listarEmpresas();
         if (Array.isArray(empList)) {
           for (const emp of empList.slice(0, 15)) {
-            // Empresa activa
             if (emp.estado === "activo" || (emp as unknown as { activo?: boolean }).activo) {
               const notifId = `emp_act_${emp.id}`;
               if (!dismissedIds.has(notifId)) {
@@ -214,7 +225,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         /* ignore */
       }
 
-      // Mezclar con las existentes evitando duplicados y respetando descartadas
+      // Notificar si se descubrieron nuevos elementos durante el polling en background
+      if (initialSyncDoneRef.current && newDiscoveredNotifs.length > 0) {
+        const latest = newDiscoveredNotifs[0];
+        playRelaxingChime();
+        setActiveToast(latest);
+      }
+
+      initialSyncDoneRef.current = true;
+
+      // Mezclar con las existentes
       setNotifications((prev) => {
         const currentNonDismissed = prev.filter((p) => !dismissedIds.has(p.id));
         const currentIds = new Set(currentNonDismissed.map((n) => n.id));
@@ -229,9 +249,44 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [dismissedIds]);
 
-  // Cargar datos reales al montar
+  // Suscripción al WebSocket en tiempo real
+  useEffect(() => {
+    const unsubscribe = notificationWsClient.subscribe((notif) => {
+      handleIncomingNotification(notif);
+      // Sincronizar inmediatamente datos al recibir evento por WebSocket
+      void syncWithBackendData();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [handleIncomingNotification, syncWithBackendData]);
+
+  // Sincronización inicial y POLLING PERIÓDICO cada 10 segundos para máxima inmediatez
   useEffect(() => {
     void syncWithBackendData();
+
+    const interval = setInterval(() => {
+      void syncWithBackendData();
+    }, 10000);
+
+    const handleFocus = () => {
+      void syncWithBackendData();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void syncWithBackendData();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [syncWithBackendData]);
 
   // Auto-ocultar toast después de 6 segundos
@@ -247,7 +302,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setActiveToast(null);
   }, []);
 
-  // Al dar click o marcar como leída una notificación, SE ELIMINA DIRECTAMENTE de la bandeja
+  // Al dar click o eliminar, se retira de la bandeja
   const deleteNotification = useCallback((id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]));
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -255,13 +310,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAsRead = useCallback(
     (id: string) => {
-      // Requisito usuario: Al darle click / marcar como leída, se elimina directamente de la bandeja
       deleteNotification(id);
     },
     [deleteNotification],
   );
 
-  // Requisito usuario: Al marcar como leído todo, desaparecen todas las notificaciones de la bandeja
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => {
       const allIds = prev.map((n) => n.id);

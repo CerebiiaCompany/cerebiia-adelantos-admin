@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import type {
   ConfiguracionGlobal,
   ConfiguracionPersonalizada,
+  GuardarConfiguracionPersonalizadaPayload,
   HistorialConfiguracion,
   SaveConfiguracionPersonalizadaPayload,
   UpdateConfiguracionPayload,

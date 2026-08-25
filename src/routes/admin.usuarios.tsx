@@ -3,16 +3,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { EmpleadoAdminApi, User, UserRole } from "@/lib/api/types";
 import { listarTodosEmpleadosAdmin } from "@/lib/api/empleados";
+import { getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
 import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { AnimatedNumber } from "@/components/admin/animated-number";
+import { PersonalizarPorcentajeDialog } from "@/components/admin/personalizar-porcentaje-dialog";
 import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -30,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Eye, EyeOff, Info, Users, UserCheck, UserX, Clock } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Info, Users, UserCheck, UserX, Clock, SlidersHorizontal, Building2, User as UserIcon } from "lucide-react";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -130,12 +133,53 @@ function EmpleadosNominaSection() {
   const [busqueda, setBusqueda] = useState("");
   const [detail, setDetail] = useState<EmpleadoAdminApi | null>(null);
 
+  // Modal de Personalización de porcentaje
+  const [personalizarOpen, setPersonalizarOpen] = useState(false);
+  const [personalizarEmpresaId, setPersonalizarEmpresaId] = useState("");
+  const [personalizarEmpleadoId, setPersonalizarEmpleadoId] = useState<string | null>(null);
+  const [personalizarPct, setPersonalizarPct] = useState<string>("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Sin `estado` → backend entrega activo, pre_registrado e inactivo.
-      setEmpleados(await listarTodosEmpleadosAdmin());
+      const [empleadosData, persData] = await Promise.all([
+        listarTodosEmpleadosAdmin(),
+        getConfiguracionesPersonalizadas().catch(() => []),
+      ]);
+
+      const ruleByEmpleadoId = new Map(
+        persData.filter((p) => p.empleado_id).map((p) => [p.empleado_id!, p]),
+      );
+      const ruleByEmpresaId = new Map(
+        persData.filter((p) => !p.empleado_id).map((p) => [p.empresa_id, p]),
+      );
+
+      const enriched = empleadosData.map((emp) => {
+        const empRule = ruleByEmpleadoId.get(emp.id);
+        const empCompanyRule = ruleByEmpresaId.get(emp.empresa_id);
+        const customRule = empRule || empCompanyRule;
+        const pct = empRule
+          ? empRule.porcentaje_maximo_adelanto
+          : empCompanyRule
+          ? empCompanyRule.porcentaje_maximo_adelanto
+          : emp.porcentaje_efectivo ?? emp.porcentaje_maximo_adelanto ?? "30.00";
+        const origen: "empleado" | "empresa" | "global" = empRule
+          ? "empleado"
+          : empCompanyRule
+          ? "empresa"
+          : "global";
+
+        return {
+          ...emp,
+          porcentaje_efectivo: pct,
+          porcentaje_maximo_adelanto: pct,
+          origen_porcentaje: origen,
+          es_porcentaje_personalizado: Boolean(customRule),
+        };
+      });
+
+      setEmpleados(enriched);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudieron cargar los empleados.");
       setEmpleados([]);
@@ -170,6 +214,13 @@ function EmpleadosNominaSection() {
       suspendidos: empleados.filter((e) => e.estado === "inactivo").length,
     };
   }, [empleados]);
+
+  const openPersonalizarEmpleado = (emp: EmpleadoAdminApi) => {
+    setPersonalizarEmpresaId(emp.empresa_id);
+    setPersonalizarEmpleadoId(emp.id);
+    setPersonalizarPct(String(emp.porcentaje_efectivo || ""));
+    setPersonalizarOpen(true);
+  };
 
   return (
     <>
@@ -267,14 +318,15 @@ function EmpleadosNominaSection() {
           </div>
         ) : (
           <div className="admin-table-scroll">
-            <table className="admin-table">
+            <table className="admin-table min-w-[52rem]">
               <thead className="admin-table-head">
                 <tr>
                   <th className="admin-table-th text-left">Empleado</th>
                   <th className="admin-table-th text-left hidden sm:table-cell">Tipo doc.</th>
                   <th className="admin-table-th text-left hidden md:table-cell">Documento</th>
-                  <th className="admin-table-th text-left hidden lg:table-cell">Correo</th>
                   <th className="admin-table-th text-left hidden xl:table-cell">Empresa</th>
+                  <th className="admin-table-th text-center">% Adelanto</th>
+                  <th className="admin-table-th text-right">Saldo disponible</th>
                   <th className="admin-table-th text-center">Estado</th>
                   <th className="admin-table-th text-left hidden lg:table-cell">Ingreso</th>
                   <th className="admin-table-th text-right">Acciones</th>
@@ -295,15 +347,44 @@ function EmpleadosNominaSection() {
                     <td className="hidden md:table-cell admin-table-cell-sub tabular">
                       {emp.documento}
                     </td>
-                    <td className="hidden lg:table-cell admin-table-cell-sub">
-                      {emp.email_empleado || "—"}
-                    </td>
                     <td className="hidden xl:table-cell">
                       {emp.empresa_nombre ? (
                         <div className="admin-table-cell-title text-sm">{emp.empresa_nombre}</div>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
+                    </td>
+                    <td className="text-center">
+                      {emp.origen_porcentaje === "empleado" ? (
+                        <Badge
+                          variant="secondary"
+                          className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs font-semibold"
+                          title="Regla personalizada para este empleado"
+                        >
+                          <UserIcon className="size-3" />
+                          {emp.porcentaje_efectivo}% Empleado
+                        </Badge>
+                      ) : emp.origen_porcentaje === "empresa" ? (
+                        <Badge
+                          variant="secondary"
+                          className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-semibold"
+                          title="Regla personalizada para la empresa"
+                        >
+                          <Building2 className="size-3" />
+                          {emp.porcentaje_efectivo}% Empresa
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs font-mono" title="Aplica límite global por defecto">
+                          30% (Global)
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right tabular font-medium text-xs text-foreground">
+                      {Number(emp.saldo_disponible || 0).toLocaleString("es-CO", {
+                        style: "currency",
+                        currency: "COP",
+                        maximumFractionDigits: 0,
+                      })}
                     </td>
                     <td className="text-center">
                       <span
@@ -318,23 +399,36 @@ function EmpleadosNominaSection() {
                         : "—"}
                     </td>
                     <td className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-10"
-                        onClick={() => setDetail(emp)}
-                        title="Ver detalle"
-                        aria-label="Ver detalle del empleado"
-                      >
-                        <Info className="size-5" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-primary hover:text-primary/80 hover:bg-primary/10"
+                          onClick={() => openPersonalizarEmpleado(emp)}
+                          title={`Personalizar porcentaje para ${emp.nombre}`}
+                          aria-label={`Personalizar porcentaje de ${emp.nombre}`}
+                        >
+                          <SlidersHorizontal className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 text-muted-foreground hover:text-foreground"
+                          onClick={() => setDetail(emp)}
+                          title="Ver detalle"
+                          aria-label="Ver detalle del empleado"
+                        >
+                          <Info className="size-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="admin-table-empty">
+                    <td colSpan={9} className="admin-table-empty">
                       No hay empleados que coincidan con el filtro.
                     </td>
                   </tr>
@@ -349,72 +443,122 @@ function EmpleadosNominaSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalle de empleado</DialogTitle>
-            <DialogDescription>Información de nómina desde GET /empleados/admin/</DialogDescription>
+            <DialogDescription>Información de nómina y límites de adelanto configurados</DialogDescription>
           </DialogHeader>
           {detail && (
-            <dl className="space-y-3 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Nombre</dt>
-                <dd className="font-semibold">{detail.nombre}</dd>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4">
+              <dl className="space-y-3 text-sm">
                 <div>
-                  <dt className="text-xs text-muted-foreground uppercase">Tipo documento</dt>
-                  <dd className="font-medium uppercase">{detail.tipo_documento || "—"}</dd>
+                  <dt className="text-xs text-muted-foreground uppercase">Nombre</dt>
+                  <dd className="font-semibold">{detail.nombre}</dd>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <dt className="text-xs text-muted-foreground uppercase">Tipo documento</dt>
+                    <dd className="font-medium uppercase">{detail.tipo_documento || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground uppercase">Documento</dt>
+                    <dd className="tabular">{detail.documento}</dd>
+                  </div>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground uppercase">Documento</dt>
-                  <dd className="tabular">{detail.documento}</dd>
-                </div>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Estado</dt>
-                <dd>
-                  <span
-                    className={`inline-flex items-center text-xs font-medium rounded-md border px-2 py-0.5 ${estadoEmpleadoBadgeClass(detail.estado)}`}
-                  >
-                    {labelEstadoEmpleado(detail.estado)}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Correo</dt>
-                <dd>{detail.email_empleado || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Empresa</dt>
-                <dd className="font-medium">{detail.empresa_nombre || "—"}</dd>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <dt className="text-xs text-muted-foreground uppercase">Celular</dt>
-                  <dd className="tabular">{detail.celular || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground uppercase">Salario</dt>
-                  <dd className="tabular">
-                    {Number(detail.salario).toLocaleString("es-CO", {
-                      style: "currency",
-                      currency: "COP",
-                      maximumFractionDigits: 0,
-                    })}
+                  <dt className="text-xs text-muted-foreground uppercase">Estado</dt>
+                  <dd>
+                    <span
+                      className={`inline-flex items-center text-xs font-medium rounded-md border px-2 py-0.5 ${estadoEmpleadoBadgeClass(detail.estado)}`}
+                    >
+                      {labelEstadoEmpleado(detail.estado)}
+                    </span>
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Correo</dt>
+                  <dd>{detail.email_empleado || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Empresa</dt>
+                  <dd className="font-medium">{detail.empresa_nombre || "—"}</dd>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <dt className="text-xs text-muted-foreground uppercase">Salario base</dt>
+                    <dd className="tabular font-semibold">
+                      {Number(detail.salario).toLocaleString("es-CO", {
+                        style: "currency",
+                        currency: "COP",
+                        maximumFractionDigits: 0,
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground uppercase">Saldo disponible</dt>
+                    <dd className="tabular font-bold text-primary">
+                      {Number(detail.saldo_disponible || 0).toLocaleString("es-CO", {
+                        style: "currency",
+                        currency: "COP",
+                        maximumFractionDigits: 0,
+                      })}
+                    </dd>
+                  </div>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">% Límite de adelanto</dt>
+                  <dd className="mt-1 flex items-center gap-2">
+                    <span className="font-mono font-bold text-sm">{detail.porcentaje_efectivo || 30}%</span>
+                    {detail.origen_porcentaje === "empleado" ? (
+                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs">
+                        Personalizado Empleado
+                      </Badge>
+                    ) : detail.origen_porcentaje === "empresa" ? (
+                      <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs">
+                        Personalizado Empresa
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">
+                        Global (30%)
+                      </Badge>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground uppercase">Banco / cuenta</dt>
+                  <dd>
+                    {detail.banco_nombre || "—"} · {detail.tipo_cuenta} · {detail.numero_cuenta}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const emp = detail;
+                    setDetail(null);
+                    openPersonalizarEmpleado(emp);
+                  }}
+                  className="gap-1.5"
+                >
+                  <SlidersHorizontal className="size-3.5" />
+                  Personalizar % de este empleado
+                </Button>
               </div>
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Banco / cuenta</dt>
-                <dd>
-                  {detail.banco_nombre || "—"} · {detail.tipo_cuenta} · {detail.numero_cuenta}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">ID</dt>
-                <dd className="font-mono text-xs break-all">{detail.id}</dd>
-              </div>
-            </dl>
+            </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <PersonalizarPorcentajeDialog
+        open={personalizarOpen}
+        onOpenChange={setPersonalizarOpen}
+        initialEmpresaId={personalizarEmpresaId}
+        initialEmpleadoId={personalizarEmpleadoId}
+        initialPorcentaje={personalizarPct}
+        onConfigSaved={load}
+        onConfigDeleted={load}
+      />
     </>
   );
 }

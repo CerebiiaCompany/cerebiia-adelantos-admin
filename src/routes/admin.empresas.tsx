@@ -8,6 +8,7 @@ import {
   suspenderEmpresa,
   updateEmpresa,
 } from "@/lib/api/empresas";
+import { getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
 import { listarTodaNominaEmpresa } from "@/lib/api/empleados";
 import { getHistorialAdelantosAdmin } from "@/lib/api/admin";
 import { listUsers } from "@/lib/api/users";
@@ -23,10 +24,12 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { AnimatedNumber } from "@/components/admin/animated-number";
 import { EmpresaNominaDialog } from "@/components/admin/empresa-nomina-dialog";
+import { PersonalizarPorcentajeDialog } from "@/components/admin/personalizar-porcentaje-dialog";
 import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +40,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Building2, Eye, EyeOff, Loader2, Pencil, Users, CheckCircle2 } from "lucide-react";
+import { Plus, Building2, Eye, EyeOff, Loader2, Pencil, Users, CheckCircle2, SlidersHorizontal, Percent } from "lucide-react";
 
 export const Route = createFileRoute("/admin/empresas")({
   head: () => ({ meta: [{ title: "Empresas — Panel" }] }),
@@ -77,6 +80,8 @@ function EmpresasPage() {
   const [nominaAdelantos, setNominaAdelantos] = useState<Adelanto[]>([]);
   const [nominaLoading, setNominaLoading] = useState(false);
   const [nominaError, setNominaError] = useState<string | null>(null);
+  const [personalizarOpen, setPersonalizarOpen] = useState(false);
+  const [personalizarEmpresaId, setPersonalizarEmpresaId] = useState<string>("");
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
 
@@ -84,19 +89,29 @@ function EmpresasPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [empresas, admins] = await Promise.all([
+      const [empresas, admins, personalizadas] = await Promise.all([
         listarEmpresas(),
         listUsers({ role: "empresa" }),
+        getConfiguracionesPersonalizadas().catch(() => []),
       ]);
       const adminById = new Map(admins.map((u) => [u.id, u]));
+      const ruleByEmpresaId = new Map(
+        personalizadas
+          .filter((p) => !p.empleado_id)
+          .map((p) => [p.empresa_id, p]),
+      );
+
       setRows(
         empresas
           .map((e) => {
             const admin = adminById.get(e.user_id);
+            const customRule = ruleByEmpresaId.get(e.id);
             return {
               ...e,
               adminNombre: admin?.full_name ?? "—",
               adminEmail: admin?.email ?? "—",
+              porcentaje_maximo_adelanto: customRule ? customRule.porcentaje_maximo_adelanto : e.porcentaje_maximo_adelanto,
+              es_porcentaje_personalizado: customRule ? true : e.es_porcentaje_personalizado,
             };
           })
           .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
@@ -454,11 +469,11 @@ function EmpresasPage() {
                   <th className="admin-table-th text-left">Empresa</th>
                   <th className="admin-table-th text-left hidden md:table-cell">NIT</th>
                   <th className="admin-table-th text-left hidden lg:table-cell">Admin</th>
-                  <th className="admin-table-th text-left hidden lg:table-cell">Teléfono</th>
+                  <th className="admin-table-th text-center">% Adelanto</th>
                   <th className="admin-table-th text-right">Empleados</th>
                   <th className="admin-table-th text-right">Adelantos</th>
                   <th className="admin-table-th text-right">Monto adelantado</th>
-                  <th className="admin-table-th text-center w-24"> </th>
+                  <th className="admin-table-th text-center w-28">Acciones</th>
                   <th className="admin-table-th text-right">Estado</th>
                 </tr>
               </thead>
@@ -484,8 +499,21 @@ function EmpresasPage() {
                         <div className="admin-table-cell-title font-medium">{row.adminNombre}</div>
                         <div className="admin-table-cell-sub">{row.adminEmail}</div>
                       </td>
-                      <td className="hidden lg:table-cell tabular admin-table-cell-mono">
-                        {row.telefono?.trim() ? row.telefono : "—"}
+                      <td className="text-center">
+                        {row.es_porcentaje_personalizado ? (
+                          <Badge
+                            variant="secondary"
+                            className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-semibold"
+                            title="Porcentaje personalizado para toda la empresa"
+                          >
+                            <SlidersHorizontal className="size-3" />
+                            {row.porcentaje_maximo_adelanto}%
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs font-mono" title="Aplica límite global por defecto">
+                            30% (Global)
+                          </span>
+                        )}
                       </td>
                       <td className="text-right tabular text-base">{row.total_empleados}</td>
                       <td className="text-right tabular text-base">{row.total_solicitudes}</td>
@@ -498,18 +526,32 @@ function EmpresasPage() {
                             type="button"
                             size="icon"
                             variant="ghost"
-                            className="size-10 text-primary hover:text-primary/80 hover:bg-primary/10"
-                            onClick={() => openEdit(row)}
-                            title="Editar empresa"
-                            aria-label={`Editar ${row.nombre}`}
+                            className="size-9 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            onClick={() => {
+                              setPersonalizarEmpresaId(row.id);
+                              setPersonalizarOpen(true);
+                            }}
+                            title={`Personalizar porcentaje para ${row.nombre}`}
+                            aria-label={`Personalizar porcentaje de ${row.nombre}`}
                           >
-                            <Pencil className="size-5" />
+                            <SlidersHorizontal className="size-4" />
                           </Button>
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
-                            className="size-10 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            className="size-9 text-primary hover:text-primary/80 hover:bg-primary/10"
+                            onClick={() => openEdit(row)}
+                            title="Editar empresa"
+                            aria-label={`Editar ${row.nombre}`}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="size-9 text-primary hover:text-primary/80 hover:bg-primary/10"
                             onClick={() => {
                               void openNomina(row);
                             }}
@@ -518,9 +560,9 @@ function EmpresasPage() {
                             disabled={nominaLoading && nominaEmpresa?.id === row.id}
                           >
                             {nominaLoading && nominaEmpresa?.id === row.id ? (
-                              <Loader2 className="size-5 animate-spin" />
+                              <Loader2 className="size-4 animate-spin" />
                             ) : (
-                              <Eye className="size-5" />
+                              <Eye className="size-4" />
                             )}
                           </Button>
                         </div>
@@ -705,6 +747,14 @@ function EmpresasPage() {
           setNominaAdelantos([]);
           setNominaError(null);
         }}
+      />
+
+      <PersonalizarPorcentajeDialog
+        open={personalizarOpen}
+        onOpenChange={setPersonalizarOpen}
+        initialEmpresaId={personalizarEmpresaId}
+        onConfigSaved={loadEmpresas}
+        onConfigDeleted={loadEmpresas}
       />
     </div>
   );
