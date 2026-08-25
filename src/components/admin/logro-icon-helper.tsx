@@ -208,6 +208,38 @@ export const PRESET_COLORS = [
 export const DEFAULT_LOGRO_COLOR = "#9333EA";
 export const DEFAULT_LOGRO_ICON = "trophy";
 
+export const DEFAULT_ICON_COLORS: Record<string, string> = {
+  rocket: "#2563EB",
+  wallet: "#10B981",
+  star: "#F59E0B",
+  coins: "#EC4899",
+  "piggy-bank": "#EC4899",
+  flame: "#F97316",
+  crown: "#9333EA",
+  clock: "#06B6D4",
+  shield: "#6366F1",
+  "shield-check": "#6366F1",
+  medal: "#0D9488",
+  trophy: "#F59E0B",
+  award: "#9333EA",
+  zap: "#F59E0B",
+  target: "#EF4444",
+  gem: "#06B6D4",
+  sparkles: "#EC4899",
+  sparkle: "#EC4899",
+  "check-circle": "#10B981",
+  calendar: "#2563EB",
+  gift: "#EC4899",
+  heart: "#EF4444",
+  sun: "#F59E0B",
+  moon: "#6366F1",
+  lock: "#475569",
+  key: "#F59E0B",
+  building: "#2563EB",
+  users: "#0D9488",
+  "party-popper": "#EC4899",
+};
+
 /**
  * Descompone un `icon_key` en su nombre de icono y color hex (si contiene `icon:color` o `icon|color`).
  */
@@ -217,17 +249,17 @@ export function parseIconKey(raw?: string): { iconName: string; color: string } 
   }
   const parts = raw.split(/[:|]/);
   const iconName = parts[0]?.trim().toLowerCase() || DEFAULT_LOGRO_ICON;
-  const color = parts[1]?.trim() || DEFAULT_LOGRO_COLOR;
+  const color =
+    parts[1]?.trim() || DEFAULT_ICON_COLORS[iconName] || DEFAULT_LOGRO_COLOR;
   return { iconName, color };
 }
 
 /**
  * Construye el string para `icon_key` combinando el icono y el color.
  */
-export function buildIconKey(iconName: string, color: string): string {
+export function buildIconKey(iconName: string, color?: string): string {
   const cleanIcon = iconName.trim().toLowerCase() || DEFAULT_LOGRO_ICON;
-  const cleanColor = color.trim() || DEFAULT_LOGRO_COLOR;
-  return `${cleanIcon}:${cleanColor}`;
+  return cleanIcon;
 }
 
 /**

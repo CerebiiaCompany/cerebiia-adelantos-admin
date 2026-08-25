@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { isLoggedIn, logout, validateSession, getStoredUser } from "@/lib/auth";
 import type { AuthUser } from "@/lib/api/types";
 import { AdminStoreProvider } from "@/lib/admin-store";
+import { NotificationProvider } from "@/lib/notifications/notification-store";
+import { NotificationToastContainer } from "@/components/admin/notification-toast-container";
 import { AdminBackground } from "@/components/admin/admin-background";
 import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
@@ -97,33 +99,36 @@ function AdminLayout() {
   if (!displayUser) return null;
 
   return (
-    <AdminStoreProvider>
-      <SidebarProvider
-        open={sidebarOpen}
-        onOpenChange={(open) => {
-          setSidebarOpen(open);
-          writeSidebarOpenPreference(open);
-        }}
-        className="min-h-svh"
-      >
-        <AdminSidebar
-          nav={nav}
-          pathname={pathname}
-          onLogout={handleLogout}
-          loggingOut={loggingOut}
-        />
+    <NotificationProvider>
+      <AdminStoreProvider>
+        <SidebarProvider
+          open={sidebarOpen}
+          onOpenChange={(open) => {
+            setSidebarOpen(open);
+            writeSidebarOpenPreference(open);
+          }}
+          className="min-h-svh"
+        >
+          <AdminSidebar
+            nav={nav}
+            pathname={pathname}
+            onLogout={handleLogout}
+            loggingOut={loggingOut}
+          />
 
-        <SidebarInset className="min-h-svh">
-          <AdminTopbar user={displayUser} onLogout={handleLogout} loggingOut={loggingOut} />
+          <SidebarInset className="min-h-svh">
+            <AdminTopbar user={displayUser} onLogout={handleLogout} loggingOut={loggingOut} />
 
-          <div className="relative flex-1">
-            <AdminBackground />
-            <div className="relative z-10">
-              <Outlet />
+            <div className="relative flex-1">
+              <AdminBackground />
+              <div className="relative z-10">
+                <Outlet />
+              </div>
             </div>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    </AdminStoreProvider>
+          </SidebarInset>
+        </SidebarProvider>
+      </AdminStoreProvider>
+      <NotificationToastContainer />
+    </NotificationProvider>
   );
 }

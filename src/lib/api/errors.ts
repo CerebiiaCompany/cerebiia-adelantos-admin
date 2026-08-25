@@ -12,14 +12,33 @@ export class ApiError extends Error {
 
 /** Extrae el mensaje de páginas de error HTML de Django en modo debug. */
 function extractDjangoHtmlError(body: string): string | null {
-  const valueMatch = body.match(/<pre class="exception_value">([\s\S]*?)<\/pre>/i);
-  if (valueMatch?.[1]) {
-    return valueMatch[1].replace(/&#x27;/g, "'").replace(/&quot;/g, '"').trim();
-  }
+  if (!body || typeof body !== "string") return null;
 
-  const plainMatch = body.match(/Exception Value:\s*(.+)/i);
-  if (plainMatch?.[1]) {
-    return plainMatch[1].replace(/<[^>]+>/g, "").trim();
+  // 1. Exception value in <pre class="exception_value">
+  const valueMatch = body.match(/<pre class="exception_value">([\s\S]*?)<\/pre>/i);
+  // 2. Exception type
+  const typeMatch = body.match(/<th>Exception Type:<\/th>\s*<td>([\s\S]*?)<\/td>/i);
+  // 3. Exception value in table
+  const tableValMatch = body.match(/<th>Exception Value:<\/th>\s*<td><pre>([\s\S]*?)<\/pre>/i);
+  // 4. Exception in h1 / summary
+  const h1Match = body.match(/<div id="summary">\s*<h1>([\s\S]*?)<\/h1>/i);
+
+  const rawType = typeMatch?.[1]?.replace(/<[^>]+>/g, "").trim();
+  const rawVal =
+    valueMatch?.[1] ||
+    tableValMatch?.[1] ||
+    body.match(/Exception Value:\s*(.+)/i)?.[1] ||
+    h1Match?.[1];
+
+  if (rawVal) {
+    const cleanVal = rawVal
+      .replace(/&#x27;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    return rawType ? `${rawType}: ${cleanVal}` : cleanVal;
   }
 
   return null;

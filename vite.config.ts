@@ -5,6 +5,7 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   nitro: {
@@ -16,6 +17,16 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^xlsx-js-style$/,
+          replacement: fileURLToPath(
+            new URL("./node_modules/xlsx-js-style/dist/xlsx.bundle.js", import.meta.url),
+          ),
+        },
+      ],
+    },
     server: {
       proxy: {
         "/api/v1": {
@@ -24,6 +35,11 @@ export default defineConfig({
         },
         "/media": {
           target: "http://localhost:8000",
+          changeOrigin: true,
+        },
+        "/ws": {
+          target: "http://localhost:8000",
+          ws: true,
           changeOrigin: true,
         },
       },

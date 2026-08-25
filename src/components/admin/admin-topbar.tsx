@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationsDropdown } from "@/components/admin/notifications-dropdown";
 
 type AdminTopbarProps = {
   user: AuthUser;
@@ -63,15 +64,7 @@ export function AdminTopbar({
         <AdminSidebarToggle />
 
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-10 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10"
-            aria-label="Notificaciones"
-          >
-            <Bell className="size-5" strokeWidth={2.25} />
-          </Button>
+          <NotificationsDropdown />
 
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>

@@ -73,6 +73,10 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   Flame,
+  Wand2,
+  HelpCircle,
+  Lightbulb,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -81,8 +85,35 @@ export const Route = createFileRoute("/admin/logros")({
   component: LogrosAdminPage,
 });
 
-const defaultForm: CrearLogroPayload & { color: string; iconName: string } = {
-  codigo: "",
+export const PREDEFINED_SLUGS = [
+  { value: "primer_paso", label: "primer_paso (1er adelanto exitoso)" },
+  { value: "primer_adelanto", label: "primer_adelanto (Primer adelanto)" },
+  { value: "finanzas_al_dia", label: "finanzas_al_dia (3 adelantos)" },
+  { value: "planificador_estrella", label: "planificador_estrella (5 adelantos)" },
+  { value: "maestro_ahorro", label: "maestro_ahorro (10 adelantos)" },
+  { value: "imparable", label: "imparable (15 adelantos)" },
+  { value: "leyenda_financiera", label: "leyenda_financiera (20 adelantos)" },
+  { value: "adelanto_3", label: "adelanto_3 (Meta 3 adelantos)" },
+  { value: "adelanto_5", label: "adelanto_5 (Meta 5 adelantos)" },
+  { value: "adelanto_10", label: "adelanto_10 (Meta 10 adelantos)" },
+  { value: "adelanto_15", label: "adelanto_15 (Meta 15 adelantos)" },
+  { value: "adelanto_20", label: "adelanto_20 (Meta 20 adelantos)" },
+  { value: "puntualidad_oro", label: "puntualidad_oro (Cumplimiento de pagos)" },
+  { value: "escudo_confianza", label: "escudo_confianza (Verificación segura)" },
+  { value: "empleado_destacado", label: "empleado_destacado (Mención especial)" },
+  { value: "gran_campeon", label: "gran_campeon (Premio administración)" },
+  { value: "ahorro_constante", label: "ahorro_constante (Constancia financiera)" },
+  { value: "fidelidad_cerebiia", label: "fidelidad_cerebiia (Fidelidad de usuario)" },
+  { value: "usuario_verificado", label: "usuario_verificado (Validación completada)" },
+  { value: "custom", label: "✏️ Escribir código personalizado..." },
+];
+
+const defaultForm: CrearLogroPayload & {
+  color: string;
+  iconName: string;
+  isCustomSlug?: boolean;
+} = {
+  codigo: "primer_paso",
   titulo: "",
   descripcion: "",
   puntos: 100,
@@ -90,10 +121,124 @@ const defaultForm: CrearLogroPayload & { color: string; iconName: string } = {
   iconName: DEFAULT_LOGRO_ICON,
   color: DEFAULT_LOGRO_COLOR,
   regla: "manual",
-  umbral: null,
+  umbral: 1,
   activo: true,
   orden: 0,
+  isCustomSlug: false,
 };
+
+export const DEFAULT_STARTER_LOGROS: Array<CrearLogroPayload> = [
+  {
+    codigo: "primer_paso",
+    titulo: "Primer Paso",
+    descripcion: "¡Bienvenido a Cerebiia! Solicitaste tu primer adelanto de nómina exitosamente.",
+    puntos: 100,
+    icon_key: "rocket",
+    regla: "primera_vez",
+    umbral: null,
+    activo: true,
+    orden: 1,
+  },
+  {
+    codigo: "finanzas_al_dia",
+    titulo: "Finanzas al Día",
+    descripcion: "Alcanzaste 3 adelantos solicitados con responsabilidad y puntualidad.",
+    puntos: 150,
+    icon_key: "wallet",
+    regla: "adelanto_count",
+    umbral: 3,
+    activo: true,
+    orden: 2,
+  },
+  {
+    codigo: "planificador_estrella",
+    titulo: "Planificador Estrella",
+    descripcion: "Completaste 5 adelantos gestionados sin contratiempos.",
+    puntos: 250,
+    icon_key: "star",
+    regla: "adelanto_count",
+    umbral: 5,
+    activo: true,
+    orden: 3,
+  },
+  {
+    codigo: "maestro_ahorro",
+    titulo: "Maestro del Ahorro",
+    descripcion: "Has demostrado una excelente gestión de liquidez con 10 adelantos completados.",
+    puntos: 500,
+    icon_key: "coins",
+    regla: "adelanto_count",
+    umbral: 10,
+    activo: true,
+    orden: 4,
+  },
+  {
+    codigo: "imparable",
+    titulo: "Imparable",
+    descripcion: "Gran trayectoria y fidelidad con 15 adelantos en la plataforma.",
+    puntos: 750,
+    icon_key: "flame",
+    regla: "adelanto_count",
+    umbral: 15,
+    activo: true,
+    orden: 5,
+  },
+  {
+    codigo: "leyenda_financiera",
+    titulo: "Leyenda Financiera",
+    descripcion: "Máximo nivel de confianza y experiencia alcanzando 20 adelantos.",
+    puntos: 1000,
+    icon_key: "crown",
+    regla: "adelanto_count",
+    umbral: 20,
+    activo: true,
+    orden: 6,
+  },
+  {
+    codigo: "puntualidad_oro",
+    titulo: "Puntualidad de Oro",
+    descripcion: "Reconocimiento por impecable cumplimiento en todos tus pagos de cuotas.",
+    puntos: 200,
+    icon_key: "clock",
+    regla: "manual",
+    umbral: null,
+    activo: true,
+    orden: 7,
+  },
+  {
+    codigo: "escudo_confianza",
+    titulo: "Escudo de Confianza",
+    descripcion: "Perfil verificado y validado con los más altos estándares de seguridad.",
+    puntos: 150,
+    icon_key: "shield",
+    regla: "manual",
+    umbral: null,
+    activo: true,
+    orden: 8,
+  },
+  {
+    codigo: "empleado_destacado",
+    titulo: "Empleado Destacado",
+    descripcion: "Mención especial otorgada por tu empresa por compromiso y excelencia.",
+    puntos: 300,
+    icon_key: "medal",
+    regla: "manual",
+    umbral: null,
+    activo: true,
+    orden: 9,
+  },
+  {
+    codigo: "gran_campeon",
+    titulo: "Gran Campeón",
+    descripcion: "Premio especial otorgado por el equipo de administración de Cerebiia.",
+    puntos: 500,
+    icon_key: "trophy",
+    regla: "manual",
+    umbral: null,
+    activo: true,
+    orden: 10,
+  },
+];
 
 function reglaLabel(regla: string, umbral?: number | null): { label: string; subtext: string } {
   switch (regla) {
@@ -121,6 +266,7 @@ function LogrosAdminPage() {
   const [items, setItems] = useState<LogroAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingDefaults, setGeneratingDefaults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -136,6 +282,9 @@ function LogrosAdminPage() {
 
   // Modal de Selector de Icono / Color
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Modal explicativo / Guía para crear insignias
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   // Diálogo de confirmación de eliminación
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -163,13 +312,28 @@ function LogrosAdminPage() {
 
   const openCreateModal = () => {
     setEditingId(null);
-    setFormData(defaultForm);
+    setFormData({
+      ...defaultForm,
+      codigo: "primer_paso",
+      titulo: "",
+      descripcion: "",
+      puntos: 100,
+      iconName: DEFAULT_LOGRO_ICON,
+      color: DEFAULT_LOGRO_COLOR,
+      icon_key: buildIconKey(DEFAULT_LOGRO_ICON, DEFAULT_LOGRO_COLOR),
+      regla: "manual",
+      umbral: 1,
+      activo: true,
+      orden: items.length + 1,
+      isCustomSlug: false,
+    });
     setModalOpen(true);
   };
 
   const openEditModal = (logro: LogroAdmin) => {
     setEditingId(logro.id);
     const { iconName, color } = parseIconKey(logro.icon_key);
+    const isPreset = PREDEFINED_SLUGS.some((s) => s.value === logro.codigo);
     setFormData({
       codigo: logro.codigo,
       titulo: logro.titulo,
@@ -179,9 +343,10 @@ function LogrosAdminPage() {
       iconName,
       color,
       regla: (logro.regla as CrearLogroPayload["regla"]) || "manual",
-      umbral: logro.umbral,
+      umbral: logro.umbral ?? 1,
       activo: logro.activo,
       orden: logro.orden,
+      isCustomSlug: !isPreset,
     });
     setModalOpen(true);
   };
@@ -308,6 +473,49 @@ function LogrosAdminPage() {
     });
   }, [items, busqueda, filtroEstado, filtroRegla]);
 
+  const handleGenerateDefaultLogros = async () => {
+    setGeneratingDefaults(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const existingCodes = new Set(items.map((i) => i.codigo));
+      const toCreate = DEFAULT_STARTER_LOGROS.filter((d) => !existingCodes.has(d.codigo));
+
+      for (const logro of toCreate) {
+        await createLogro({
+          codigo: logro.codigo.trim().toLowerCase().replace(/\s+/g, "_"),
+          titulo: logro.titulo.trim(),
+          descripcion: logro.descripcion?.trim() || "",
+          puntos: Math.max(0, Math.round(Number(logro.puntos) || 100)),
+          icon_key: logro.icon_key || "star",
+          regla: logro.regla,
+          umbral: logro.regla === "adelanto_count" ? Math.max(1, Number(logro.umbral) || 1) : null,
+          activo: Boolean(logro.activo),
+          orden: Number(logro.orden) || 0,
+        });
+      }
+
+      setSuccess(`¡${toCreate.length} insignias por defecto creadas e integradas exitosamente!`);
+      await load();
+    } catch (err) {
+      console.error("Error al generar insignias por defecto:", err);
+      setError(
+        err instanceof ApiError
+          ? `${err.message}`
+          : "Ocurrió un error al generar las insignias predeterminadas.",
+      );
+      await load();
+    } finally {
+      setGeneratingDefaults(false);
+    }
+  };
+
+  const hasDefaultLogros = items.some((item) =>
+    DEFAULT_STARTER_LOGROS.some((d) => d.codigo === item.codigo),
+  );
+
+  const showGenerateButton = !hasDefaultLogros && items.length < 10;
+
   return (
     <div key={animationKey} className="admin-page space-y-6">
       {/* HEADER DE LA PÁGINA */}
@@ -317,14 +525,37 @@ function LogrosAdminPage() {
           title="Logros e insignias"
           subtitle="Administra el catálogo de insignias, reglas de desbloqueo y recompensas en puntos para los empleados."
         />
-        <Button
-          type="button"
-          onClick={openCreateModal}
-          className="h-10 gap-2 font-semibold shadow-sm shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="size-4" />
-          Nueva insignia
-        </Button>
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          {showGenerateButton && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={generatingDefaults || loading}
+              onClick={() => void handleGenerateDefaultLogros()}
+              className="h-10 gap-2 font-medium shadow-xs border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-xl"
+            >
+              {generatingDefaults ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Creando 10 insignias…
+                </>
+              ) : (
+                <>
+                  <Wand2 className="size-4 text-primary" />
+                  Generar 10 insignias por defecto
+                </>
+              )}
+            </Button>
+          )}
+          <Button
+            type="button"
+            onClick={openCreateModal}
+            className="h-10 gap-2 font-semibold shadow-sm shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+          >
+            <Plus className="size-4" />
+            Nueva insignia
+          </Button>
+        </div>
       </div>
 
       {/* ALERTAS */}
@@ -509,14 +740,35 @@ function LogrosAdminPage() {
               </p>
             </div>
             {items.length === 0 && (
-              <Button
-                type="button"
-                onClick={openCreateModal}
-                className="gap-2 font-semibold text-xs rounded-xl"
-              >
-                <Plus className="size-4" />
-                Crear primera insignia
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={generatingDefaults || loading}
+                  onClick={() => void handleGenerateDefaultLogros()}
+                  className="gap-2 font-medium text-xs rounded-xl border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  {generatingDefaults ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Creando 10 insignias…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="size-4 text-primary" />
+                      Generar 10 insignias por defecto
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="gap-2 font-semibold text-xs rounded-xl"
+                >
+                  <Plus className="size-4" />
+                  Crear primera insignia
+                </Button>
+              </div>
             )}
           </div>
         ) : (
@@ -729,23 +981,61 @@ function LogrosAdminPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="form-codigo" className="text-xs font-semibold">
-                  Código único (Slug) *
-                </Label>
-                <Input
-                  id="form-codigo"
-                  value={formData.codigo}
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="form-codigo" className="text-xs font-semibold">
+                    Código único (Slug) *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setInfoModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline hover:text-primary/80 transition-colors"
+                  >
+                    <HelpCircle className="size-3.5" />
+                    ¿Qué es esto y cómo crearla?
+                  </button>
+                </div>
+                <Select
+                  value={formData.isCustomSlug ? "custom" : formData.codigo || "primer_paso"}
+                  onValueChange={(val) => {
+                    if (val === "custom") {
+                      setFormData((f) => ({ ...f, isCustomSlug: true }));
+                    } else {
+                      setFormData((f) => ({ ...f, codigo: val, isCustomSlug: false }));
+                    }
+                  }}
                   disabled={Boolean(editingId)}
-                  onChange={(e) =>
-                    setFormData((f) => ({
-                      ...f,
-                      codigo: e.target.value.toLowerCase().replace(/\s+/g, "_"),
-                    }))
-                  }
-                  placeholder="primer_adelanto"
-                  required
-                  className="rounded-xl h-10 font-mono text-xs"
-                />
+                >
+                  <SelectTrigger id="form-codigo" className="h-10 rounded-xl font-mono text-xs">
+                    <SelectValue placeholder="Seleccionar slug..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {editingId && !PREDEFINED_SLUGS.some((s) => s.value === formData.codigo) && (
+                      <SelectItem value={formData.codigo} className="font-mono text-xs">
+                        {formData.codigo} (actual)
+                      </SelectItem>
+                    )}
+                    {PREDEFINED_SLUGS.map((slug) => (
+                      <SelectItem key={slug.value} value={slug.value} className="font-mono text-xs">
+                        {slug.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.isCustomSlug && !editingId && (
+                  <Input
+                    id="form-codigo-custom"
+                    value={formData.codigo}
+                    onChange={(e) =>
+                      setFormData((f) => ({
+                        ...f,
+                        codigo: e.target.value.toLowerCase().replace(/\s+/g, "_"),
+                      }))
+                    }
+                    placeholder="ej. mi_logro_personalizado"
+                    required
+                    className="rounded-xl h-9 font-mono text-xs mt-1.5 animate-in fade-in"
+                  />
+                )}
               </div>
             </div>
 
@@ -933,6 +1223,127 @@ function LogrosAdminPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* GUÍA EXPLICATIVA PASO A PASO PARA EL USUARIO */}
+      <Dialog open={infoModalOpen} onOpenChange={setInfoModalOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border shadow-2xl rounded-2xl">
+          <div className="p-5 border-b border-border bg-gradient-to-r from-purple-500/10 via-primary/5 to-blue-500/10">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-2xl bg-primary/10 text-primary grid place-items-center shrink-0 shadow-inner">
+                  <Lightbulb className="size-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-bold text-foreground">
+                    Guía Rápida: ¿Cómo crear una insignia?
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    Aprende qué significa cada dato de forma simple y sin tecnicismos.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+            {/* Card explicativa destacada: ¿Qué es el Código único o Slug? */}
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold border-amber-500/30 text-[11px] px-2.5 py-0.5"
+                >
+                  💡 ¿Qué es el "Código único (Slug)"?
+                </Badge>
+              </div>
+              <p className="text-foreground/90 leading-relaxed">
+                Es como la <strong>"cédula o nombre interno"</strong> que utiliza el sistema para reconocer la insignia y saber cuándo entregarla automáticamente a los empleados.
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                👉 <strong>No te preocupes por nombres técnicos:</strong> simplemente abre la lista y elige el que más se parezca a lo que premia la insignia (por ejemplo, <code className="bg-background/80 px-1.5 py-0.5 rounded font-mono text-primary font-semibold">primer_paso</code> si es el primer adelanto, o <code className="bg-background/80 px-1.5 py-0.5 rounded font-mono text-primary font-semibold">finanzas_al_dia</code> si completó 3 adelantos).
+              </p>
+            </div>
+
+            {/* Pasos */}
+            <div className="space-y-2.5">
+              <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider text-muted-foreground">
+                Paso a Paso para configurar tu insignia:
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Paso 1 */}
+                <div className="rounded-xl border border-border/80 bg-card p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="size-5 rounded-md bg-primary/10 text-primary font-bold text-[11px] grid place-items-center">
+                      1
+                    </div>
+                    <span className="font-semibold text-foreground text-xs">Icono y Color</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Elige el símbolo (trofeo, cohete, estrella, alcancía) y el color que más resalte en la pantalla del empleado.
+                  </p>
+                </div>
+
+                {/* Paso 2 */}
+                <div className="rounded-xl border border-border/80 bg-card p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="size-5 rounded-md bg-primary/10 text-primary font-bold text-[11px] grid place-items-center">
+                      2
+                    </div>
+                    <span className="font-semibold text-foreground text-xs">Título y Mensaje</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Escribe un nombre motivador (ej. <em>Planificador Estrella</em>) y una frase animando al trabajador.
+                  </p>
+                </div>
+
+                {/* Paso 3 */}
+                <div className="rounded-xl border border-border/80 bg-card p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="size-5 rounded-md bg-primary/10 text-primary font-bold text-[11px] grid place-items-center">
+                      3
+                    </div>
+                    <span className="font-semibold text-foreground text-xs">Puntos Otorgados</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Define los puntos de recompensa que sumará el empleado para subir de nivel y motivación.
+                  </p>
+                </div>
+
+                {/* Paso 4 */}
+                <div className="rounded-xl border border-border/80 bg-card p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="size-5 rounded-md bg-primary/10 text-primary font-bold text-[11px] grid place-items-center">
+                      4
+                    </div>
+                    <span className="font-semibold text-foreground text-xs">Regla de Entrega</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Elige si se desbloquea <strong>automáticamente</strong> al pedir adelantos o de forma <strong>manual</strong> cuando tú quieras premiar.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tip adicional */}
+            <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 flex items-start gap-2.5">
+              <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                <strong className="text-foreground">Consejo para ahorrar tiempo:</strong> Puedes usar el botón <em>"Generar 10 insignias por defecto"</em> y el sistema creará automáticamente las 10 insignias ideales prediseñadas.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border bg-muted/30 flex justify-end">
+            <Button
+              type="button"
+              onClick={() => setInfoModalOpen(false)}
+              className="font-semibold text-xs rounded-xl px-5"
+            >
+              ¡Entendido, gracias!
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

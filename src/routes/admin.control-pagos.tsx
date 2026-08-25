@@ -28,6 +28,7 @@ import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { AnimatedNumber } from "@/components/admin/animated-number";
 import { useModuleAnimationKey } from "@/hooks/use-module-animation-key";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -36,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Landmark, Loader2, Banknote, ListChecks, FileUp, FileSpreadsheet } from "lucide-react";
+import { Building2, Landmark, Loader2, Banknote, ListChecks, FileUp, FileSpreadsheet, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/admin/control-pagos")({
   head: () => ({ meta: [{ title: "Control de pagos — Panel" }] }),
@@ -91,6 +92,7 @@ function ControlPagosPage() {
   const [periodos, setPeriodos] = useState(fallbackCurrentPeriod);
   const [periodo, setPeriodo] = useState(currentPeriodValue);
   const [empresaId, setEmpresaId] = useState("all");
+  const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([]);
   const [rows, setRows] = useState<ControlPagoEmpresaApi[]>([]);
   const [cuentas, setCuentas] = useState<CuentaCobroApi[]>([]);
@@ -109,6 +111,16 @@ function ControlPagosPage() {
     (id: string) => empresas.find((e) => e.id === id)?.nombre ?? id.slice(0, 8),
     [empresas],
   );
+
+  const empresasFiltradas = useMemo(() => {
+    const q = busquedaEmpresa.trim().toLowerCase();
+    if (!q) return empresas;
+    return empresas.filter(
+      (e) =>
+        e.nombre.toLowerCase().includes(q) ||
+        (e.nit && e.nit.toLowerCase().includes(q)),
+    );
+  }, [empresas, busquedaEmpresa]);
 
   useEffect(() => {
     void listarEmpresas()
@@ -292,20 +304,57 @@ function ControlPagosPage() {
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label>Empresa</Label>
-          <Select value={empresaId} onValueChange={setEmpresaId}>
-            <SelectTrigger className="h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {empresas.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center justify-between">
+            <Label>Empresa</Label>
+            {busquedaEmpresa.trim() && (
+              <span className="text-[11px] font-medium text-primary">
+                {empresasFiltradas.length} encontrada{empresasFiltradas.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={busquedaEmpresa}
+                onChange={(e) => setBusquedaEmpresa(e.target.value)}
+                placeholder="Filtrar por iniciales..."
+                className="h-10 pl-9 pr-8 text-xs rounded-xl border-border/80 focus-visible:ring-primary/20"
+              />
+              {busquedaEmpresa && (
+                <button
+                  type="button"
+                  onClick={() => setBusquedaEmpresa("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md transition-colors"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+            <Select value={empresaId} onValueChange={setEmpresaId}>
+              <SelectTrigger className="h-10 rounded-xl">
+                <SelectValue placeholder="Seleccionar empresa" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64">
+                <SelectItem value="all">Todas las empresas</SelectItem>
+                {empresasFiltradas.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-muted-foreground">
+                    Sin coincidencias para "{busquedaEmpresa}"
+                  </div>
+                ) : (
+                  empresasFiltradas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nombre}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Escribe las iniciales para filtrar el selector de empresas.
+          </p>
         </div>
       </div>
 

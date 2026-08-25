@@ -46,6 +46,9 @@ export function createLogro(payload: CrearLogroPayload) {
   return apiRequest<LogroAdmin>("/logros/", {
     method: "POST",
     auth: true,
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
   });
 }
@@ -54,6 +57,9 @@ export function updateLogro(id: string, payload: ActualizarLogroPayload) {
   return apiRequest<LogroAdmin>(`/logros/${id}/`, {
     method: "PATCH",
     auth: true,
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
   });
 }
