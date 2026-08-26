@@ -635,3 +635,30 @@ export interface UpdateComisionPayload {
 
 export type CreateConfiguracionPersonalizadaPayload = SaveConfiguracionPersonalizadaPayload;
 
+export interface LiberarCuotasDetalleItem {
+  empleado_id: string;
+  empleado_nombre: string;
+  adelanto_id: string;
+  numero_cuota: number;
+  monto_cuota: number | string;
+  nuevo_saldo_disponible?: number | string;
+}
+
+export interface LiberarCuotasPayload {
+  empresa_id: string;
+  periodo: string;
+  mes?: number;
+  anio?: number;
+  numero_cuota?: number;
+  nota?: string;
+  referencia_pago?: string;
+}
+
+export interface LiberarCuotasResponse {
+  success: boolean;
+  message: string;
+  cuotas_liberadas: number;
+  empleados_actualizados: number;
+  monto_total_liberado: number | string;
+  detalles?: LiberarCuotasDetalleItem[];
+}

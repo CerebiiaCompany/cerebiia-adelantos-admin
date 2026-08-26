@@ -6,6 +6,8 @@ import type {
   CrearCuentaCobroPayload,
   CuentaCobroApi,
   HistorialAdelantosAdminResponse,
+  LiberarCuotasPayload,
+  LiberarCuotasResponse,
   ListAuditoriaParams,
   ListControlPagosParams,
   ListCuentasCobroParams,
@@ -136,3 +138,13 @@ export function getHistorialAdelantosAdmin(params?: ListHistorialAdelantosParams
     { auth: true },
   );
 }
+
+/** Libera las cuotas de un periodo para una empresa y restaura el saldo disponible de sus empleados */
+export function liberarCuotasEmpresa(payload: LiberarCuotasPayload) {
+  return apiRequest<LiberarCuotasResponse>(`/admin/control-pagos/liberar-cuotas/`, {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(payload),
+  });
+}
+

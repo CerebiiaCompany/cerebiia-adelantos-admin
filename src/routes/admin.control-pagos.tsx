@@ -37,7 +37,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Building2, Landmark, Loader2, Banknote, ListChecks, FileUp, FileSpreadsheet, Search, X } from "lucide-react";
+import {
+  Building2,
+  Landmark,
+  Loader2,
+  Banknote,
+  ListChecks,
+  FileUp,
+  FileSpreadsheet,
+  Search,
+  X,
+  Coins,
+  CheckCircle2,
+  FileText,
+  Eye,
+} from "lucide-react";
+import { LiberarPagosDialog } from "@/components/admin/liberar-pagos-dialog";
+import { InformeCuotasLiberadasDialog } from "@/components/admin/informe-cuotas-liberadas-dialog";
+import { DetalleAdelantosCobroDialog } from "@/components/admin/detalle-adelantos-cobro-dialog";
+import type { LiberarCuotasResponse } from "@/lib/api/types";
 
 export const Route = createFileRoute("/admin/control-pagos")({
   head: () => ({ meta: [{ title: "Control de pagos — Panel" }] }),
@@ -99,6 +117,14 @@ function ControlPagosPage() {
   const [loading, setLoading] = useState(true);
   const [actionKey, setActionKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [liberarModalEmpresa, setLiberarModalEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
+  const [liberarModalOpen, setLiberarModalOpen] = useState(false);
+  const [detalleModalEmpresa, setDetalleModalEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
+  const [detalleModalOpen, setDetalleModalOpen] = useState(false);
+  const [empresasLiberadasIds, setEmpresasLiberadasIds] = useState<Set<string>>(new Set());
+  const [informeModalOpen, setInformeModalOpen] = useState(false);
+  const [informeData, setInformeData] = useState<LiberarCuotasResponse | null>(null);
+  const [informeEmpresa, setInformeEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
   const docInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const evInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -186,7 +212,8 @@ function ControlPagosPage() {
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => {
-        acc.cobrar += Number(r.total_a_cobrar) || 0;
+        const isLiberada = empresasLiberadasIds.has(r.empresa_id) || r.cuenta_cobro_estado === "verificada";
+        acc.cobrar += isLiberada ? 0 : (Number(r.total_a_cobrar) || 0);
         acc.pagado += Number(r.total_pagado) || 0;
         acc.comisiones += Number(r.comisiones_generadas) || 0;
         acc.rechazadas += r.solicitudes_rechazadas;
@@ -195,7 +222,7 @@ function ControlPagosPage() {
       },
       { cobrar: 0, pagado: 0, comisiones: 0, rechazadas: 0, pagadas: 0 },
     );
-  }, [rows]);
+  }, [rows, empresasLiberadasIds]);
 
   const cuentaPorEmpresa = useMemo(() => {
     const map = new Map<string, CuentaCobroApi>();
@@ -489,8 +516,21 @@ function ControlPagosPage() {
                     <td className="text-right admin-table-cell-money tabular">
                       {formatCOP(Number(row.comisiones_generadas) || 0)}
                     </td>
-                    <td className="text-right admin-table-cell-money tabular font-semibold text-primary">
-                      {formatCOP(Number(row.total_a_cobrar) || 0)}
+                    <td className="text-right admin-table-cell-money tabular font-semibold">
+                      {empresasLiberadasIds.has(row.empresa_id) || cuenta?.estado === "verificada" || Number(row.total_a_cobrar) === 0 ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCOP(0)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/50 mt-0.5 shadow-xs">
+                            <CheckCircle2 className="size-2.5 text-emerald-600" /> Saldado
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-primary font-bold">
+                          {formatCOP(Number(row.total_a_cobrar) || 0)}
+                        </span>
+                      )}
                     </td>
                     <td>
                       {cuenta ? (
@@ -498,6 +538,10 @@ function ControlPagosPage() {
                           className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${ESTADO_CUENTA_COBRO_CLASSES[cuenta.estado]}`}
                         >
                           {estadoCuentaCobroLabel[cuenta.estado]}
+                        </span>
+                      ) : empresasLiberadasIds.has(row.empresa_id) ? (
+                        <span className="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200">
+                          Saldada
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Sin cuenta</span>
@@ -508,8 +552,59 @@ function ControlPagosPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="border-indigo-200/80 bg-indigo-50/70 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-900 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 font-semibold shadow-xs"
+                          title="Ver detalle de los adelantos que se están cobrando según el periodo filtrado"
+                          onClick={() => {
+                            setDetalleModalEmpresa(row);
+                            setDetalleModalOpen(true);
+                          }}
+                        >
+                          <Eye className="size-3.5 sm:mr-1.5 text-indigo-600 dark:text-indigo-400" />
+                          <span className="hidden sm:inline">Ver adelantos</span>
+                          <span className="sm:hidden">Ver</span>
+                        </Button>
+                        {empresasLiberadasIds.has(row.empresa_id) || cuenta?.estado === "verificada" || Number(row.total_a_cobrar) === 0 ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 shadow-xs">
+                              <CheckCircle2 className="size-3.5 text-emerald-600" />
+                              Pagos liberados
+                            </span>
+                            {informeData && informeEmpresa?.empresa_id === row.empresa_id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs text-primary border-primary/30 hover:bg-primary/10 rounded-xl px-2.5 font-medium"
+                                onClick={() => {
+                                  setInformeModalOpen(true);
+                                }}
+                              >
+                                <FileText className="size-3.5 mr-1 text-primary" />
+                                Ver informe
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!!busy}
+                            className="border-emerald-300/90 dark:border-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 font-semibold shadow-xs"
+                            title="Liberar pagos de cuotas y restaurar saldo a empleados"
+                            onClick={() => {
+                              setLiberarModalEmpresa(row);
+                              setLiberarModalOpen(true);
+                            }}
+                          >
+                            <Coins className="size-3.5 sm:mr-1.5 text-emerald-600 dark:text-emerald-400" />
+                            <span className="hidden sm:inline">Liberar pagos</span>
+                            <span className="sm:hidden">Liberar</span>
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
                           disabled={!!busy}
-                          className="border-emerald-200/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:text-emerald-900"
+                          className="border-blue-200/80 bg-blue-50/60 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
                           title="Descargar Excel de descuentos de nómina del periodo"
                           onClick={() =>
                             void descargarReferenciaNomina(row.empresa_id, row.empresa_nombre)
@@ -734,6 +829,40 @@ function ControlPagosPage() {
           </div>
         </div>
       )}
+
+      <LiberarPagosDialog
+        open={liberarModalOpen}
+        onOpenChange={setLiberarModalOpen}
+        empresa={liberarModalEmpresa}
+        periodo={periodo}
+        periodoLabel={selected?.label}
+        onSuccess={(res) => {
+          if (liberarModalEmpresa) {
+            setEmpresasLiberadasIds((prev) => new Set([...prev, liberarModalEmpresa.empresa_id]));
+            setInformeEmpresa(liberarModalEmpresa);
+          }
+          setInformeData(res);
+          setInformeModalOpen(true);
+          void load();
+        }}
+      />
+
+      <InformeCuotasLiberadasDialog
+        open={informeModalOpen}
+        onOpenChange={setInformeModalOpen}
+        informe={informeData}
+        empresaNombre={informeEmpresa?.empresa_nombre}
+        empresaNit={informeEmpresa?.empresa_nit}
+        periodoLabel={selected?.label}
+      />
+
+      <DetalleAdelantosCobroDialog
+        open={detalleModalOpen}
+        onOpenChange={setDetalleModalOpen}
+        empresa={detalleModalEmpresa}
+        periodo={periodo}
+        periodoLabel={selected?.label}
+      />
     </div>
   );
 }
