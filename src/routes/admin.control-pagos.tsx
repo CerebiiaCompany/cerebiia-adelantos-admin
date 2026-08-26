@@ -505,6 +505,11 @@ function ControlPagosPage() {
                 const busy = actionKey?.endsWith(row.empresa_id) || actionKey?.endsWith(cuenta?.id ?? "");
                 const isVerificada =
                   cuenta?.estado === "verificada" || row.cuenta_cobro_estado === "verificada";
+                const totalCobrar = Number(row.total_a_cobrar) || 0;
+                const estaAlDia =
+                  isVerificada ||
+                  (totalCobrar === 0 &&
+                    (row.solicitudes_pagadas > 0 || row.cuenta_cobro_estado === "verificada"));
 
                 return (
                   <tr key={row.empresa_id} className="hover:bg-muted/30">
@@ -551,18 +556,22 @@ function ControlPagosPage() {
                       {formatCOP(Number(row.comisiones_generadas) || 0)}
                     </td>
                     <td className="text-right admin-table-cell-money tabular font-semibold">
-                      {isVerificada ? (
+                      {estaAlDia ? (
                         <div className="flex flex-col items-end">
                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCOP(0)}
                           </span>
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/50 mt-0.5 shadow-xs">
-                            <CheckCircle2 className="size-2.5 text-emerald-600" /> Saldado
+                            <CheckCircle2 className="size-2.5 text-emerald-600" /> A paz y salvo
                           </span>
                         </div>
+                      ) : totalCobrar === 0 ? (
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {formatCOP(0)}
+                        </span>
                       ) : (
                         <span className="text-primary font-bold">
-                          {formatCOP(Number(row.total_a_cobrar) || 0)}
+                          {formatCOP(totalCobrar)}
                         </span>
                       )}
                     </td>
@@ -573,17 +582,21 @@ function ControlPagosPage() {
                         >
                           {estadoCuentaCobroLabel[cuenta.estado]}
                         </span>
+                      ) : estaAlDia ? (
+                        <span className="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200">
+                          Al día
+                        </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Sin cuenta</span>
                       )}
                     </td>
                     <td className="text-right">
                       <div className="flex flex-wrap justify-end items-center gap-1.5">
-                        {isVerificada ? (
+                        {estaAlDia ? (
                           <>
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 shadow-xs">
                               <CheckCircle2 className="size-3.5 text-emerald-600" />
-                              <span className="hidden sm:inline">Pagos liberados</span>
+                              <span className="hidden sm:inline">A paz y salvo</span>
                             </span>
                             {informeData && informeEmpresa?.empresa_id === row.empresa_id && (
                               <Tooltip>
@@ -606,7 +619,7 @@ function ControlPagosPage() {
                               </Tooltip>
                             )}
                           </>
-                        ) : (
+                        ) : totalCobrar > 0 ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -627,7 +640,7 @@ function ControlPagosPage() {
                               Liberar pagos de cuotas y restaurar saldo
                             </TooltipContent>
                           </Tooltip>
-                        )}
+                        ) : null}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
