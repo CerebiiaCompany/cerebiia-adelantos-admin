@@ -110,6 +110,32 @@ export function DetalleAdelantosCobroDialog({
     );
   }, [data?.resumen, busqueda]);
 
+  // Total a cobrar este mes: solo suma las cuotas que están pendientes de cobro
+  const totalPendienteCobrar = useMemo(() => {
+    if (data?.detalle && data.detalle.length > 0) {
+      return data.detalle
+        .filter((d) => d.estado_cuota === "pendiente")
+        .reduce((sum, d) => sum + (Number(d.monto_a_descontar) || 0), 0);
+    }
+    return Number(empresa?.total_a_cobrar) || 0;
+  }, [data?.detalle, empresa?.total_a_cobrar]);
+
+  // Mapa de montos pendientes por empleado en el resumen
+  const pendientesPorEmpleado = useMemo(() => {
+    const map = new Map<string, number>();
+    if (data?.detalle) {
+      for (const d of data.detalle) {
+        if (d.estado_cuota === "pendiente") {
+          map.set(
+            d.numero_documento,
+            (map.get(d.numero_documento) || 0) + (Number(d.monto_a_descontar) || 0),
+          );
+        }
+      }
+    }
+    return map;
+  }, [data?.detalle]);
+
   const handleExportExcel = () => {
     if (data) {
       exportReferenciaNominaExcel(data);
@@ -121,9 +147,6 @@ export function DetalleAdelantosCobroDialog({
   }
 
   const totales = data?.totales;
-  const totalDescontar =
-    Number(totales?.total_a_descontar_mes || data?.total_a_descontar || empresa.total_a_cobrar) ||
-    0;
   const totalSolicitado = Number(totales?.total_solicitado || empresa.total_pagado) || 0;
   const totalCuotas = totales?.total_cuotas || data?.detalle?.length || 0;
   const totalEmpleados = data?.resumen?.length || 0;
@@ -180,7 +203,7 @@ export function DetalleAdelantosCobroDialog({
                 <Wallet className="size-3.5 text-primary" /> Total a cobrar este mes
               </p>
               <p className="text-lg sm:text-xl font-normal text-primary mt-1 font-mono tracking-tight">
-                {formatCOP(totalDescontar)}
+                {formatCOP(totalPendienteCobrar)}
               </p>
             </div>
 
@@ -383,8 +406,16 @@ export function DetalleAdelantosCobroDialog({
                             <td className="text-right tabular font-mono text-foreground font-normal">
                               {formatCOP(Number(d.monto_solicitud) || 0)}
                             </td>
-                            <td className="text-right tabular font-mono text-primary font-normal">
-                              {formatCOP(Number(d.monto_a_descontar) || 0)}
+                            <td className="text-right tabular font-mono font-normal">
+                              {isPagada ? (
+                                <span className="text-muted-foreground/60">
+                                  {formatCOP(0)}
+                                </span>
+                              ) : (
+                                <span className="text-primary">
+                                  {formatCOP(Number(d.monto_a_descontar) || 0)}
+                                </span>
+                              )}
                             </td>
                             <td className="text-right tabular font-mono text-muted-foreground font-normal">
                               {formatCOP(Number(d.tarifa_cuota) || 0)}
@@ -433,40 +464,51 @@ export function DetalleAdelantosCobroDialog({
                         </td>
                       </tr>
                     ) : (
-                      resumenFiltrado.map((r, idx) => (
-                        <tr key={`${r.numero_documento}-${idx}`} className="hover:bg-muted/40 transition-colors">
-                          <td className="admin-table-cell-title">
-                            <div className="flex items-center gap-2.5">
-                              <div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
-                                <User className="size-3.5" />
+                      resumenFiltrado.map((r, idx) => {
+                        const pendienteEmp = pendientesPorEmpleado.get(r.numero_documento) || 0;
+                        return (
+                          <tr key={`${r.numero_documento}-${idx}`} className="hover:bg-muted/40 transition-colors">
+                            <td className="admin-table-cell-title">
+                              <div className="flex items-center gap-2.5">
+                                <div className="size-7 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0">
+                                  <User className="size-3.5" />
+                                </div>
+                                <span className="font-medium text-foreground">
+                                  {r.nombre} {r.apellido}
+                                </span>
                               </div>
-                              <span className="font-medium text-foreground">
-                                {r.nombre} {r.apellido}
+                            </td>
+                            <td className="tabular font-mono text-muted-foreground font-normal">
+                              {r.numero_documento}
+                            </td>
+                            <td className="text-center tabular font-normal text-foreground">
+                              {r.cantidad_adelantos}
+                            </td>
+                            <td className="text-center font-mono">
+                              <span className="px-2.5 py-1 rounded-lg bg-muted text-[11px] font-normal border border-border/60">
+                                {r.detalle_cuotas || r.total_cuotas}
                               </span>
-                            </div>
-                          </td>
-                          <td className="tabular font-mono text-muted-foreground font-normal">
-                            {r.numero_documento}
-                          </td>
-                          <td className="text-center tabular font-normal text-foreground">
-                            {r.cantidad_adelantos}
-                          </td>
-                          <td className="text-center font-mono">
-                            <span className="px-2.5 py-1 rounded-lg bg-muted text-[11px] font-normal border border-border/60">
-                              {r.detalle_cuotas || r.total_cuotas}
-                            </span>
-                          </td>
-                          <td className="text-right tabular font-mono text-foreground font-normal">
-                            {formatCOP(Number(r.total_solicitado) || 0)}
-                          </td>
-                          <td className="text-right tabular font-mono text-muted-foreground font-normal">
-                            {formatCOP(Number(r.total_neto_transferido) || 0)}
-                          </td>
-                          <td className="text-right tabular font-mono text-primary font-normal">
-                            {formatCOP(Number(r.total_a_descontar_mes) || 0)}
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="text-right tabular font-mono text-foreground font-normal">
+                              {formatCOP(Number(r.total_solicitado) || 0)}
+                            </td>
+                            <td className="text-right tabular font-mono text-muted-foreground font-normal">
+                              {formatCOP(Number(r.total_neto_transferido) || 0)}
+                            </td>
+                            <td className="text-right tabular font-mono font-normal">
+                              {pendienteEmp > 0 ? (
+                                <span className="text-primary">
+                                  {formatCOP(pendienteEmp)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/60">
+                                  {formatCOP(0)}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
