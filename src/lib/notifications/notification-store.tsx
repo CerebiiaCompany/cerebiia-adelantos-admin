@@ -12,6 +12,7 @@ import { isSoundEnabled, playRelaxingChime, setSoundEnabled } from "./notificati
 import { notificationWsClient } from "./notification-websocket";
 import { listSolicitudesAdmin } from "@/lib/api/adelantos";
 import { listarEmpresas } from "@/lib/api/empresas";
+import { apiRequest } from "@/lib/api/client";
 import { isLoggedIn } from "@/lib/auth";
 
 const NOTIFICATIONS_STORAGE_KEY = "cerebiia_admin_notifications_v2";
@@ -22,6 +23,7 @@ interface NotificationContextValue {
   unreadCount: number;
   soundEnabled: boolean;
   activeToast: AdminNotification | null;
+  isWsConnected: boolean;
   dismissToast: () => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -83,9 +85,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedIds);
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(isSoundEnabled);
   const [activeToast, setActiveToast] = useState<AdminNotification | null>(null);
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(() => notificationWsClient.isConnected());
 
   const initialSyncDoneRef = useRef(false);
-  const seenSolicitudKeysRef = useRef<Set<string>>(new Set());
+  const seenKeysRef = useRef<Set<string>>(new Set());
 
   // Guardar en localStorage
   useEffect(() => {
@@ -96,7 +99,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     saveDismissedIds(dismissedIds);
   }, [dismissedIds]);
 
-  // Manejar llegada de una nueva notificación en vivo
+  // Manejar llegada de una nueva notificación en vivo (vía WebSocket o Polling)
   const handleIncomingNotification = useCallback(
     (notif: AdminNotification) => {
       if (dismissedIds.has(notif.id)) return;
@@ -106,16 +109,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return [notif, ...prev];
       });
 
-      // Sonido relajante
       playRelaxingChime();
-
-      // Toast emergente
       setActiveToast(notif);
     },
     [dismissedIds],
   );
 
-  // Sincronizar con datos reales del backend
+  // Sincronizar con endpoints del backend (fallback y carga inicial)
   const syncWithBackendData = useCallback(async () => {
     if (!isLoggedIn()) return;
 
@@ -123,109 +123,136 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const realNotifs: AdminNotification[] = [];
       const newDiscoveredNotifs: AdminNotification[] = [];
 
-      // 1. Obtener solicitudes de adelanto
+      // 1. Intentar consultar endpoint dedicado GET /api/v1/notificaciones/me/ (o /notificaciones/me/)
+      let fetchedDirectNotifs = false;
       try {
-        const solRes = await listSolicitudesAdmin({ limit: 50 });
-        const items = solRes?.results || [];
-
-        for (const sol of items) {
-          const montoFmt = Number(sol.monto || 0).toLocaleString("es-CO");
-          const empleadoNombre = sol.empleado_nombre || "Empleado";
-          const empresaNombre = sol.empresa_nombre ? ` (${sol.empresa_nombre})` : "";
-
-          // Solicitudes pendientes de respuesta / revisión
-          if (
-            sol.estado === "solicitado" ||
-            sol.estado === "pendiente" ||
-            sol.estado === "en_revision"
-          ) {
-            const notifId = `sol_pend_${sol.id}`;
-            const isDismissed = dismissedIds.has(notifId);
-
-            if (!isDismissed) {
-              const notifObj: AdminNotification = {
-                id: notifId,
-                tipo: "solicitud_creada",
-                categoria: "adelantos",
-                titulo: "Nueva solicitud de adelanto",
-                mensaje: `${empleadoNombre}${empresaNombre} solicitó un adelanto de $${montoFmt} COP.`,
-                fecha: sol.created_at || new Date().toISOString(),
-                leido: false,
-                link: "/admin/adelantos",
-                prioridad: "alta",
-                data: { solicitud_id: sol.id, monto: sol.monto },
-              };
-              realNotifs.push(notifObj);
-
-              // Si ya se hizo la carga inicial y esta solicitud no se había visto antes:
-              if (initialSyncDoneRef.current && !seenSolicitudKeysRef.current.has(notifId)) {
-                newDiscoveredNotifs.push(notifObj);
-              }
-            }
-            seenSolicitudKeysRef.current.add(notifId);
-          }
-
-          // Solicitudes aprobadas sin comprobante de pago
-          if (
-            (sol.estado === "aprobado" || sol.estado === "aprobada") &&
-            !sol.comprobante_pago
-          ) {
-            const notifId = `sol_pago_${sol.id}`;
+        const directRes = await apiRequest<AdminNotification[] | { results?: AdminNotification[] }>(
+          "/notificaciones/me/",
+          { auth: true },
+        );
+        const list = Array.isArray(directRes) ? directRes : directRes?.results || [];
+        if (list.length > 0) {
+          fetchedDirectNotifs = true;
+          for (const item of list) {
+            const notifId = item.id || `notif_${Date.now()}`;
             if (!dismissedIds.has(notifId)) {
-              const notifObj: AdminNotification = {
+              realNotifs.push({
+                ...item,
                 id: notifId,
-                tipo: "adelanto_sin_pago",
-                categoria: "pagos",
-                titulo: "Adelanto aprobado pendiente de pago",
-                mensaje: `Solicitud de ${empleadoNombre} por $${montoFmt} COP está aprobada y requiere comprobante de pago.`,
-                fecha: sol.created_at || new Date().toISOString(),
-                leido: false,
-                link: "/admin/control-pagos",
-                prioridad: "urgente",
-                data: { solicitud_id: sol.id, monto: sol.monto },
-              };
-              realNotifs.push(notifObj);
-
-              if (initialSyncDoneRef.current && !seenSolicitudKeysRef.current.has(notifId)) {
-                newDiscoveredNotifs.push(notifObj);
+                leido: Boolean(item.leido),
+              });
+              if (initialSyncDoneRef.current && !seenKeysRef.current.has(notifId)) {
+                newDiscoveredNotifs.push(item);
               }
             }
-            seenSolicitudKeysRef.current.add(notifId);
+            seenKeysRef.current.add(notifId);
           }
         }
       } catch {
-        /* ignore api fetch errors */
+        // Si no existe o da 404, continúa con el fallback de solicitudes y empresas
       }
 
-      // 2. Obtener empresas activas
-      try {
-        const empList = await listarEmpresas();
-        if (Array.isArray(empList)) {
-          for (const emp of empList.slice(0, 15)) {
-            if (emp.estado === "activo" || (emp as unknown as { activo?: boolean }).activo) {
-              const notifId = `emp_act_${emp.id}`;
+      // 2. Si no se obtuvieron notificaciones directas, consultar solicitudes pendientes del admin
+      if (!fetchedDirectNotifs) {
+        try {
+          const solRes = await listSolicitudesAdmin({ limit: 50 });
+          const items = solRes?.results || [];
+
+          for (const sol of items) {
+            const montoFmt = Number(sol.monto || 0).toLocaleString("es-CO");
+            const empleadoNombre = sol.empleado_nombre || "Empleado";
+            const empresaNombre = sol.empresa_nombre ? ` (${sol.empresa_nombre})` : "";
+
+            // Solicitudes pendientes
+            if (
+              sol.estado === "solicitado" ||
+              sol.estado === "pendiente" ||
+              sol.estado === "en_revision"
+            ) {
+              const notifId = `sol_pend_${sol.id}`;
               if (!dismissedIds.has(notifId)) {
-                realNotifs.push({
+                const notifObj: AdminNotification = {
                   id: notifId,
-                  tipo: "empresa_activa",
-                  categoria: "empresas",
-                  titulo: "Empresa activa",
-                  mensaje: `La empresa '${emp.nombre}' tiene su cuenta activa en la plataforma.`,
-                  fecha: emp.created_at || new Date().toISOString(),
+                  tipo: "solicitud_creada",
+                  categoria: "adelantos",
+                  titulo: "Nueva solicitud de adelanto",
+                  mensaje: `${empleadoNombre}${empresaNombre} solicitó un adelanto de $${montoFmt} COP.`,
+                  fecha: sol.created_at || new Date().toISOString(),
                   leido: false,
-                  link: "/admin/empresas",
-                  prioridad: "normal",
-                  data: { empresa_id: emp.id, empresa_nombre: emp.nombre },
-                });
+                  link: "/admin/adelantos",
+                  prioridad: "alta",
+                  data: { solicitud_id: sol.id, monto: sol.monto },
+                };
+                realNotifs.push(notifObj);
+
+                if (initialSyncDoneRef.current && !seenKeysRef.current.has(notifId)) {
+                  newDiscoveredNotifs.push(notifObj);
+                }
+              }
+              seenKeysRef.current.add(notifId);
+            }
+
+            // Solicitudes aprobadas pendientes de pago
+            if (
+              (sol.estado === "aprobado" || sol.estado === "aprobada") &&
+              !sol.comprobante_pago
+            ) {
+              const notifId = `sol_pago_${sol.id}`;
+              if (!dismissedIds.has(notifId)) {
+                const notifObj: AdminNotification = {
+                  id: notifId,
+                  tipo: "adelanto_sin_pago",
+                  categoria: "pagos",
+                  titulo: "Adelanto aprobado pendiente de pago",
+                  mensaje: `Solicitud de ${empleadoNombre} por $${montoFmt} COP está aprobada y requiere comprobante de pago.`,
+                  fecha: sol.created_at || new Date().toISOString(),
+                  leido: false,
+                  link: "/admin/control-pagos",
+                  prioridad: "urgente",
+                  data: { solicitud_id: sol.id, monto: sol.monto },
+                };
+                realNotifs.push(notifObj);
+
+                if (initialSyncDoneRef.current && !seenKeysRef.current.has(notifId)) {
+                  newDiscoveredNotifs.push(notifObj);
+                }
+              }
+              seenKeysRef.current.add(notifId);
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+
+        // Empresas activas
+        try {
+          const empList = await listarEmpresas();
+          if (Array.isArray(empList)) {
+            for (const emp of empList.slice(0, 15)) {
+              if (emp.estado === "activo" || (emp as unknown as { activo?: boolean }).activo) {
+                const notifId = `emp_act_${emp.id}`;
+                if (!dismissedIds.has(notifId)) {
+                  realNotifs.push({
+                    id: notifId,
+                    tipo: "empresa_activa",
+                    categoria: "empresas",
+                    titulo: "Empresa activa",
+                    mensaje: `La empresa '${emp.nombre}' tiene su cuenta activa en la plataforma.`,
+                    fecha: emp.created_at || new Date().toISOString(),
+                    leido: false,
+                    link: "/admin/empresas",
+                    prioridad: "normal",
+                    data: { empresa_id: emp.id, empresa_nombre: emp.nombre },
+                  });
+                }
               }
             }
           }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
 
-      // Notificar si se descubrieron nuevos elementos durante el polling en background
       if (initialSyncDoneRef.current && newDiscoveredNotifs.length > 0) {
         const latest = newDiscoveredNotifs[0];
         playRelaxingChime();
@@ -234,7 +261,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       initialSyncDoneRef.current = true;
 
-      // Mezclar con las existentes
       setNotifications((prev) => {
         const currentNonDismissed = prev.filter((p) => !dismissedIds.has(p.id));
         const currentIds = new Set(currentNonDismissed.map((n) => n.id));
@@ -249,45 +275,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [dismissedIds]);
 
-  // Suscripción al WebSocket en tiempo real
+  // Suscripción al WebSocket y monitoreo de estado
   useEffect(() => {
-    const unsubscribe = notificationWsClient.subscribe((notif) => {
+    const unsubStatus = notificationWsClient.onStatusChange((connected) => {
+      setIsWsConnected(connected);
+    });
+
+    const unsubMsg = notificationWsClient.subscribe((notif) => {
       handleIncomingNotification(notif);
-      // Sincronizar inmediatamente datos al recibir evento por WebSocket
       void syncWithBackendData();
     });
+
     return () => {
-      unsubscribe();
+      unsubStatus();
+      unsubMsg();
     };
   }, [handleIncomingNotification, syncWithBackendData]);
 
-  // Sincronización inicial y POLLING PERIÓDICO cada 10 segundos para máxima inmediatez
+  // FALLBACK INTELIGENTE:
+  // - Carga inicial al montar.
+  // - Si el WebSocket NO está conectado: polling pasivo y espaciado cada 60 segundos hacia /api/notificaciones/me/
+  // - Si el WebSocket está conectado: se pausa el polling.
   useEffect(() => {
     void syncWithBackendData();
 
+    if (isWsConnected) {
+      return;
+    }
+
     const interval = setInterval(() => {
       void syncWithBackendData();
-    }, 10000);
-
-    const handleFocus = () => {
-      void syncWithBackendData();
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void syncWithBackendData();
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
+    }, 60000); // 60s polling cuando el socket no está conectado
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [syncWithBackendData]);
+  }, [isWsConnected, syncWithBackendData]);
 
   // Auto-ocultar toast después de 6 segundos
   useEffect(() => {
@@ -302,7 +325,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setActiveToast(null);
   }, []);
 
-  // Al dar click o eliminar, se retira de la bandeja
   const deleteNotification = useCallback((id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]));
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -371,6 +393,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       unreadCount,
       soundEnabled,
       activeToast,
+      isWsConnected,
       dismissToast,
       markAsRead,
       markAllAsRead,
@@ -386,6 +409,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       unreadCount,
       soundEnabled,
       activeToast,
+      isWsConnected,
       dismissToast,
       markAsRead,
       markAllAsRead,

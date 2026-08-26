@@ -1,30 +1,60 @@
 import { getAccessToken } from "@/lib/auth-storage";
-import { API_ORIGIN } from "@/lib/api/config";
+import { WS_BASE_URL } from "@/lib/api/config";
 import type { AdminNotification } from "./types";
 
 export type NotificationCallback = (notification: AdminNotification) => void;
+export type StatusCallback = (connected: boolean) => void;
+
+const RETRY_DELAYS = [5000, 10000, 20000, 30000];
 
 class NotificationWebSocketClient {
   private socket: WebSocket | null = null;
   private listeners: Set<NotificationCallback> = new Set();
+  private statusListeners: Set<StatusCallback> = new Set();
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private isExplicitlyClosed = false;
   private reconnectAttempts = 0;
+  private connected = false;
 
   constructor() {
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => {
-        if (this.listeners.size > 0) {
+        if (this.listeners.size > 0 && !this.isConnected()) {
           this.reconnect();
         }
       });
 
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible" && this.listeners.size > 0) {
-          if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+          if (!this.isConnected()) {
             this.reconnect();
           }
+        }
+      });
+    }
+  }
+
+  public isConnected(): boolean {
+    return Boolean(this.socket && this.socket.readyState === WebSocket.OPEN);
+  }
+
+  public onStatusChange(callback: StatusCallback): () => void {
+    this.statusListeners.add(callback);
+    callback(this.isConnected());
+    return () => {
+      this.statusListeners.delete(callback);
+    };
+  }
+
+  private notifyStatus(status: boolean): void {
+    if (this.connected !== status) {
+      this.connected = status;
+      this.statusListeners.forEach((cb) => {
+        try {
+          cb(status);
+        } catch {
+          /* ignore */
         }
       });
     }
@@ -45,20 +75,7 @@ class NotificationWebSocketClient {
 
   public getWsUrl(): string {
     const token = getAccessToken() || "";
-    let wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    let host = window.location.host;
-
-    if (API_ORIGIN && API_ORIGIN.startsWith("http")) {
-      try {
-        const u = new URL(API_ORIGIN);
-        host = u.host;
-        wsProtocol = u.protocol === "https:" ? "wss:" : "ws:";
-      } catch {
-        /* fallback */
-      }
-    }
-
-    return `${wsProtocol}//${host}/ws/notificaciones/?token=${encodeURIComponent(token)}`;
+    return `${WS_BASE_URL}/ws/notificaciones/?token=${encodeURIComponent(token)}`;
   }
 
   public connect(): void {
@@ -73,7 +90,10 @@ class NotificationWebSocketClient {
     }
 
     const token = getAccessToken();
-    if (!token) return;
+    if (!token) {
+      this.notifyStatus(false);
+      return;
+    }
 
     try {
       const wsUrl = this.getWsUrl();
@@ -81,9 +101,10 @@ class NotificationWebSocketClient {
 
       this.socket.onopen = () => {
         this.reconnectAttempts = 0;
+        this.notifyStatus(true);
         this.startHeartbeat();
 
-        // Enviar handshake / autenticación explícita
+        // Handshake explícito
         try {
           if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({ type: "authenticate", token }));
@@ -98,12 +119,13 @@ class NotificationWebSocketClient {
         try {
           const raw = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
           this.handleIncomingRawMessage(raw);
-        } catch (err) {
-          console.warn("[WS] Error parseando mensaje de WebSocket:", err);
+        } catch {
+          /* silencioso para evitar spam */
         }
       };
 
       this.socket.onclose = () => {
+        this.notifyStatus(false);
         this.stopHeartbeat();
         if (!this.isExplicitlyClosed) {
           this.scheduleReconnect();
@@ -111,6 +133,8 @@ class NotificationWebSocketClient {
       };
 
       this.socket.onerror = () => {
+        // Envolver onerror para no emitir ráfagas de logs repetitivos
+        this.notifyStatus(false);
         if (this.socket) {
           try {
             this.socket.close();
@@ -120,6 +144,7 @@ class NotificationWebSocketClient {
         }
       };
     } catch {
+      this.notifyStatus(false);
       this.scheduleReconnect();
     }
   }
@@ -127,7 +152,6 @@ class NotificationWebSocketClient {
   private handleIncomingRawMessage(data: Record<string, unknown>): void {
     if (!data || typeof data !== "object") return;
 
-    // Ignorar respuestas de heartbeat
     if (data.type === "pong" || data.type === "heartbeat" || data.action === "pong") {
       return;
     }
@@ -201,6 +225,7 @@ class NotificationWebSocketClient {
 
   public disconnect(): void {
     this.isExplicitlyClosed = true;
+    this.notifyStatus(false);
     this.stopHeartbeat();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -233,8 +258,8 @@ class NotificationWebSocketClient {
     this.listeners.forEach((callback) => {
       try {
         callback(validNotif);
-      } catch (err) {
-        console.error("Error en listener de notificación:", err);
+      } catch {
+        /* ignore */
       }
     });
   }
@@ -243,8 +268,8 @@ class NotificationWebSocketClient {
     if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
     if (this.isExplicitlyClosed) return;
 
-    // Reconexión infinita con backoff acotado a 8s
-    const delay = Math.min(1000 * Math.pow(1.3, this.reconnectAttempts), 8000);
+    // Backoff progresivo: 1er intento en 5s, luego 10s, 20s, hasta máx 30s
+    const delay = RETRY_DELAYS[Math.min(this.reconnectAttempts, RETRY_DELAYS.length - 1)];
     this.reconnectAttempts++;
 
     this.reconnectTimeout = setTimeout(() => {

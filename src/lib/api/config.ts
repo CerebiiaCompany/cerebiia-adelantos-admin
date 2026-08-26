@@ -16,6 +16,26 @@ export const API_ORIGIN =
       ? "http://localhost:8000"
       : "http://localhost:8000");
 
+/** Base URL para WebSockets (ws:// o wss://) */
+export const WS_BASE_URL = (() => {
+  const customWs = import.meta.env.VITE_WS_URL ?? import.meta.env.VITE_WS_BASE_URL;
+  if (customWs) return customWs.replace(/\/$/, "");
+
+  const isHttps = typeof window !== "undefined" ? window.location.protocol === "https:" : false;
+  const defaultProto = isHttps ? "wss:" : "ws:";
+
+  if (API_ORIGIN.startsWith("https://")) {
+    return API_ORIGIN.replace(/^https:\/\//, "wss://");
+  }
+  if (API_ORIGIN.startsWith("http://")) {
+    return API_ORIGIN.replace(/^http:\/\//, "ws://");
+  }
+  if (typeof window !== "undefined") {
+    return `${defaultProto}//${window.location.host}`;
+  }
+  return "ws://localhost:8000";
+})();
+
 export function getMediaUrl(path: string | null | undefined): string | null {
   if (!path) return null;
 
