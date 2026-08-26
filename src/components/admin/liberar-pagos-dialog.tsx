@@ -45,7 +45,7 @@ export function LiberarPagosDialog({
   periodoLabel,
   onSuccess,
 }: LiberarPagosDialogProps) {
-  const [tipoLiberacion, setTipoLiberacion] = useState<"cuota_1" | "todas">("cuota_1");
+  const [tipoLiberacion, setTipoLiberacion] = useState<"periodo" | "todas">("periodo");
   const [referenciaPago, setReferenciaPago] = useState("");
   const [nota, setNota] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -70,7 +70,7 @@ export function LiberarPagosDialog({
         periodo,
         anio,
         mes,
-        numero_cuota: tipoLiberacion === "cuota_1" ? 1 : undefined,
+        numero_cuota: undefined,
         referencia_pago: referenciaPago.trim() || undefined,
         nota: nota.trim() || undefined,
       });
@@ -184,29 +184,29 @@ export function LiberarPagosDialog({
             </Label>
             <RadioGroup
               value={tipoLiberacion}
-              onValueChange={(v) => setTipoLiberacion(v as "cuota_1" | "todas")}
+              onValueChange={(v) => setTipoLiberacion(v as "periodo" | "todas")}
               className="grid grid-cols-1 gap-2.5"
             >
               <label
-                htmlFor="r-cuota-1"
+                htmlFor="r-periodo"
                 className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  tipoLiberacion === "cuota_1"
+                  tipoLiberacion === "periodo"
                     ? "border-emerald-500/80 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-sm"
                     : "border-border/80 hover:bg-muted/40"
                 }`}
               >
-                <RadioGroupItem value="cuota_1" id="r-cuota-1" className="mt-0.5" />
+                <RadioGroupItem value="periodo" id="r-periodo" className="mt-0.5" />
                 <div className="flex-1 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-foreground">
-                      Liberar Cuota 1 (Cuota del mes)
+                      Liberar cuotas programadas de este periodo
                     </span>
                     <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                       Recomendado
                     </span>
                   </div>
                   <p className="text-muted-foreground mt-1">
-                    Marca como pagada la primera cuota de los adelantos activos del periodo. Si el adelanto era a 1 cuota queda saldado; si era a 2 o 3 cuotas, se libera la primera cuota y se restaura ese valor en el saldo del empleado.
+                    Amortiza la cuota que vence en este periodo ({periodoLabel || periodo}) para cada empleado (sea Cuota 1, 2 o 3 de su adelanto) y reintegra inmediatamente el valor pagado a su saldo disponible.
                   </p>
                 </div>
               </label>
@@ -222,10 +222,10 @@ export function LiberarPagosDialog({
                 <RadioGroupItem value="todas" id="r-todas" className="mt-0.5" />
                 <div className="flex-1 text-xs">
                   <span className="font-bold text-foreground">
-                    Liberar todas las cuotas del periodo
+                    Liberar todas las cuotas pendientes (Liquidación total)
                   </span>
                   <p className="text-muted-foreground mt-1">
-                    Marca como pagadas todas las cuotas asociadas al periodo seleccionado, liberando el monto completo comprometido.
+                    Marca como pagadas todas las cuotas restantes de los adelantos activos de la empresa, restaurando el 100% del saldo comprometido de los empleados.
                   </p>
                 </div>
               </label>

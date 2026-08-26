@@ -38,6 +38,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Building2,
   Landmark,
   Loader2,
@@ -49,6 +55,7 @@ import {
   X,
   Coins,
   CheckCircle2,
+  Check,
   FileText,
   Eye,
 } from "lucide-react";
@@ -121,7 +128,6 @@ function ControlPagosPage() {
   const [liberarModalOpen, setLiberarModalOpen] = useState(false);
   const [detalleModalEmpresa, setDetalleModalEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
-  const [empresasLiberadasIds, setEmpresasLiberadasIds] = useState<Set<string>>(new Set());
   const [informeModalOpen, setInformeModalOpen] = useState(false);
   const [informeData, setInformeData] = useState<LiberarCuotasResponse | null>(null);
   const [informeEmpresa, setInformeEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
@@ -209,11 +215,19 @@ function ControlPagosPage() {
     void load();
   }, [load]);
 
+  const cuentaPorEmpresa = useMemo(() => {
+    const map = new Map<string, CuentaCobroApi>();
+    for (const c of cuentas) map.set(c.empresa_id, c);
+    return map;
+  }, [cuentas]);
+
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => {
-        const isLiberada = empresasLiberadasIds.has(r.empresa_id) || r.cuenta_cobro_estado === "verificada";
-        acc.cobrar += isLiberada ? 0 : (Number(r.total_a_cobrar) || 0);
+        const cuenta = cuentaPorEmpresa.get(r.empresa_id);
+        const isVerificada =
+          cuenta?.estado === "verificada" || r.cuenta_cobro_estado === "verificada";
+        acc.cobrar += isVerificada ? 0 : (Number(r.total_a_cobrar) || 0);
         acc.pagado += Number(r.total_pagado) || 0;
         acc.comisiones += Number(r.comisiones_generadas) || 0;
         acc.rechazadas += r.solicitudes_rechazadas;
@@ -222,13 +236,7 @@ function ControlPagosPage() {
       },
       { cobrar: 0, pagado: 0, comisiones: 0, rechazadas: 0, pagadas: 0 },
     );
-  }, [rows, empresasLiberadasIds]);
-
-  const cuentaPorEmpresa = useMemo(() => {
-    const map = new Map<string, CuentaCobroApi>();
-    for (const c of cuentas) map.set(c.empresa_id, c);
-    return map;
-  }, [cuentas]);
+  }, [rows, cuentaPorEmpresa]);
 
   async function runAction(key: string, fn: () => Promise<unknown>) {
     setActionKey(key);
@@ -495,14 +503,40 @@ function ControlPagosPage() {
                       } as CuentaCobroApi)
                     : undefined);
                 const busy = actionKey?.endsWith(row.empresa_id) || actionKey?.endsWith(cuenta?.id ?? "");
+                const isVerificada =
+                  cuenta?.estado === "verificada" || row.cuenta_cobro_estado === "verificada";
+
                 return (
                   <tr key={row.empresa_id} className="hover:bg-muted/30">
                     <td>
-                      <div className="flex items-center gap-3">
-                        <div className="admin-table-icon-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="admin-table-icon-wrap shrink-0">
                           <Building2 className="admin-table-icon" />
                         </div>
-                        <div className="admin-table-cell-title">{row.empresa_nombre}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="admin-table-cell-title font-medium">{row.empresa_nombre}</span>
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7 rounded-lg text-muted-foreground/80 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400 transition-colors shrink-0 cursor-pointer"
+                                  onClick={() => {
+                                    setDetalleModalEmpresa(row);
+                                    setDetalleModalOpen(true);
+                                  }}
+                                  aria-label="Ver detalles"
+                                >
+                                  <Eye className="size-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-medium">
+                                Ver detalles
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
                     </td>
                     <td className="hidden md:table-cell tabular admin-table-cell-mono">
@@ -517,7 +551,7 @@ function ControlPagosPage() {
                       {formatCOP(Number(row.comisiones_generadas) || 0)}
                     </td>
                     <td className="text-right admin-table-cell-money tabular font-semibold">
-                      {empresasLiberadasIds.has(row.empresa_id) || cuenta?.estado === "verificada" || Number(row.total_a_cobrar) === 0 ? (
+                      {isVerificada ? (
                         <div className="flex flex-col items-end">
                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             {formatCOP(0)}
@@ -539,86 +573,84 @@ function ControlPagosPage() {
                         >
                           {estadoCuentaCobroLabel[cuenta.estado]}
                         </span>
-                      ) : empresasLiberadasIds.has(row.empresa_id) ? (
-                        <span className="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200">
-                          Saldada
-                        </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Sin cuenta</span>
                       )}
                     </td>
                     <td className="text-right">
-                      <div className="flex flex-wrap justify-end gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-indigo-200/80 bg-indigo-50/70 text-indigo-800 hover:bg-indigo-100 hover:text-indigo-900 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 font-semibold shadow-xs"
-                          title="Ver detalle de los adelantos que se están cobrando según el periodo filtrado"
-                          onClick={() => {
-                            setDetalleModalEmpresa(row);
-                            setDetalleModalOpen(true);
-                          }}
-                        >
-                          <Eye className="size-3.5 sm:mr-1.5 text-indigo-600 dark:text-indigo-400" />
-                          <span className="hidden sm:inline">Ver adelantos</span>
-                          <span className="sm:hidden">Ver</span>
-                        </Button>
-                        {empresasLiberadasIds.has(row.empresa_id) || cuenta?.estado === "verificada" || Number(row.total_a_cobrar) === 0 ? (
+                      <div className="flex flex-wrap justify-end items-center gap-1.5">
+                        {isVerificada ? (
                           <>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 shadow-xs">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 shadow-xs">
                               <CheckCircle2 className="size-3.5 text-emerald-600" />
-                              Pagos liberados
+                              <span className="hidden sm:inline">Pagos liberados</span>
                             </span>
                             {informeData && informeEmpresa?.empresa_id === row.empresa_id && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs text-primary border-primary/30 hover:bg-primary/10 rounded-xl px-2.5 font-medium"
-                                onClick={() => {
-                                  setInformeModalOpen(true);
-                                }}
-                              >
-                                <FileText className="size-3.5 mr-1 text-primary" />
-                                Ver informe
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    className="size-8 text-primary border-primary/30 hover:bg-primary/10 rounded-lg shadow-xs cursor-pointer"
+                                    onClick={() => {
+                                      setInformeModalOpen(true);
+                                    }}
+                                    aria-label="Ver informe de pagos liberados"
+                                  >
+                                    <FileText className="size-4 text-primary" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs font-medium">
+                                  Ver informe de pagos liberados
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!!busy}
-                            className="border-emerald-300/90 dark:border-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 font-semibold shadow-xs"
-                            title="Liberar pagos de cuotas y restaurar saldo a empleados"
-                            onClick={() => {
-                              setLiberarModalEmpresa(row);
-                              setLiberarModalOpen(true);
-                            }}
-                          >
-                            <Coins className="size-3.5 sm:mr-1.5 text-emerald-600 dark:text-emerald-400" />
-                            <span className="hidden sm:inline">Liberar pagos</span>
-                            <span className="sm:hidden">Liberar</span>
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                disabled={!!busy}
+                                className="size-8 rounded-lg border-emerald-300/90 dark:border-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 shadow-xs cursor-pointer"
+                                onClick={() => {
+                                  setLiberarModalEmpresa(row);
+                                  setLiberarModalOpen(true);
+                                }}
+                                aria-label="Liberar pagos"
+                              >
+                                <Coins className="size-4 text-emerald-600 dark:text-emerald-400" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-medium">
+                              Liberar pagos de cuotas y restaurar saldo
+                            </TooltipContent>
+                          </Tooltip>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!!busy}
-                          className="border-blue-200/80 bg-blue-50/60 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
-                          title="Descargar Excel de descuentos de nómina del periodo"
-                          onClick={() =>
-                            void descargarReferenciaNomina(row.empresa_id, row.empresa_nombre)
-                          }
-                        >
-                          {actionKey === `excel:${row.empresa_id}` ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <>
-                              <FileSpreadsheet className="size-3.5 sm:mr-1.5" />
-                              <span className="hidden sm:inline">Excel nómina</span>
-                            </>
-                          )}
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              disabled={!!busy}
+                              className="size-8 rounded-lg border-blue-200/80 bg-blue-50/60 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300 shadow-xs cursor-pointer"
+                              onClick={() =>
+                                void descargarReferenciaNomina(row.empresa_id, row.empresa_nombre)
+                              }
+                              aria-label="Descargar Excel de nómina"
+                            >
+                              {actionKey === `excel:${row.empresa_id}` ? (
+                                <Loader2 className="size-4 animate-spin text-blue-600" />
+                              ) : (
+                                <FileSpreadsheet className="size-4 text-blue-600 dark:text-blue-400" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs font-medium">
+                            Descargar Excel de descuentos de nómina
+                          </TooltipContent>
+                        </Tooltip>
                         {!cuenta && Number(row.total_a_cobrar) > 0 && (
                           <>
                             <input
@@ -635,25 +667,29 @@ function ControlPagosPage() {
                                 void onSubirCuentaCobro(row, file);
                               }}
                             />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={!!busy}
-                              title="Subir PDF de la cuenta de cobro"
-                              onClick={() =>
-                                docInputRefs.current[`new:${row.empresa_id}`]?.click()
-                              }
-                            >
-                              {actionKey === `subir:${row.empresa_id}` ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <FileUp className="size-3.5 sm:mr-1.5" />
-                                  <span className="hidden sm:inline">Subir cuenta de cobro</span>
-                                  <span className="sm:hidden">Subir PDF</span>
-                                </>
-                              )}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="secondary"
+                                  disabled={!!busy}
+                                  className="size-8 rounded-lg shadow-xs cursor-pointer"
+                                  onClick={() =>
+                                    docInputRefs.current[`new:${row.empresa_id}`]?.click()
+                                  }
+                                  aria-label="Subir cuenta de cobro"
+                                >
+                                  {actionKey === `subir:${row.empresa_id}` ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                  ) : (
+                                    <FileUp className="size-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-medium">
+                                Subir PDF de cuenta de cobro
+                              </TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                         {cuenta?.estado === "borrador" && (
@@ -672,23 +708,27 @@ function ControlPagosPage() {
                                 onSubirDocumentoExistente(cuenta.id, file);
                               }}
                             />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={!!busy}
-                              title="Subir PDF de la cuenta de cobro"
-                              onClick={() => docInputRefs.current[cuenta.id]?.click()}
-                            >
-                              {actionKey === `doc:${cuenta.id}` ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <FileUp className="size-3.5 sm:mr-1.5" />
-                                  <span className="hidden sm:inline">Subir cuenta de cobro</span>
-                                  <span className="sm:hidden">Subir PDF</span>
-                                </>
-                              )}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="secondary"
+                                  disabled={!!busy}
+                                  className="size-8 rounded-lg shadow-xs cursor-pointer"
+                                  onClick={() => docInputRefs.current[cuenta.id]?.click()}
+                                  aria-label="Subir cuenta de cobro"
+                                >
+                                  {actionKey === `doc:${cuenta.id}` ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                  ) : (
+                                    <FileUp className="size-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-medium">
+                                Subir PDF de cuenta de cobro
+                              </TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                         {cuenta &&
@@ -710,36 +750,60 @@ function ControlPagosPage() {
                                   );
                                 }}
                               />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={!!busy}
-                                title="Subir el PDF de la cuenta de cobro para que la empresa pague"
-                                onClick={() => evInputRefs.current[cuenta.id]?.click()}
-                              >
-                                <FileUp className="size-3.5 sm:mr-1.5" />
-                                <span className="hidden sm:inline">Subir cuenta de cobro</span>
-                                <span className="sm:hidden">Subir cuenta</span>
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    disabled={!!busy}
+                                    className="size-8 rounded-lg border-amber-300/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300 shadow-xs cursor-pointer"
+                                    onClick={() => evInputRefs.current[cuenta.id]?.click()}
+                                    aria-label="Subir cuenta de cobro para pago"
+                                  >
+                                    <FileUp className="size-4 text-amber-700 dark:text-amber-400" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs font-medium">
+                                  Subir PDF de cuenta de cobro para pago
+                                </TooltipContent>
+                              </Tooltip>
                             </>
                           )}
                         {cuenta?.estado === "evidencia_enviada" && (
                           <>
-                            <Button
-                              size="sm"
-                              disabled={!!busy}
-                              onClick={() => onVerificar(cuenta)}
-                            >
-                              Verificar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={!!busy}
-                              onClick={() => onRechazar(cuenta)}
-                            >
-                              Rechazar
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  disabled={!!busy}
+                                  className="size-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
+                                  onClick={() => onVerificar(cuenta)}
+                                  aria-label="Verificar cuenta de cobro"
+                                >
+                                  <Check className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-medium">
+                                Verificar cuenta de cobro
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="destructive"
+                                  disabled={!!busy}
+                                  className="size-8 rounded-lg shadow-xs cursor-pointer"
+                                  onClick={() => onRechazar(cuenta)}
+                                  aria-label="Rechazar evidencia"
+                                >
+                                  <X className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-medium">
+                                Rechazar evidencia
+                              </TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                       </div>
@@ -838,7 +902,6 @@ function ControlPagosPage() {
         periodoLabel={selected?.label}
         onSuccess={(res) => {
           if (liberarModalEmpresa) {
-            setEmpresasLiberadasIds((prev) => new Set([...prev, liberarModalEmpresa.empresa_id]));
             setInformeEmpresa(liberarModalEmpresa);
           }
           setInformeData(res);
