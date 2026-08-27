@@ -33,7 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Eye, EyeOff, Info, Users, UserCheck, UserX, Clock, SlidersHorizontal, Building2, User as UserIcon } from "lucide-react";
+import { Plus, Loader2, Eye, EyeOff, Info, Users, UserCheck, UserX, Clock, SlidersHorizontal, Building2, User as UserIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/usuarios")({
   head: () => ({ meta: [{ title: "Usuarios — Panel" }] }),
@@ -133,6 +134,7 @@ function EmpleadosNominaSection() {
   );
   const [busqueda, setBusqueda] = useState("");
   const [detail, setDetail] = useState<EmpleadoAdminApi | null>(null);
+  const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
 
   // Modal de Personalización de porcentaje
   const [personalizarOpen, setPersonalizarOpen] = useState(false);
@@ -244,7 +246,44 @@ function EmpleadosNominaSection() {
             onChange={(e) => setBusqueda(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5 w-full sm:w-[180px]">
+        <div className="flex sm:hidden justify-between items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setMobileFiltrosOpen((prev) => !prev)}
+            className="gap-2 text-xs font-semibold h-9 rounded-xl border-primary/20 bg-primary/[0.04] text-primary"
+          >
+            <SlidersHorizontal className="size-3.5" />
+            <span>Filtro por estado</span>
+            {estadoFiltro !== "all" && (
+              <span className="size-2 rounded-full bg-primary animate-pulse" />
+            )}
+            {mobileFiltrosOpen ? (
+              <ChevronUp className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            )}
+          </Button>
+
+          {estadoFiltro !== "all" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setEstadoFiltro("all")}
+              className="text-xs text-muted-foreground h-8"
+            >
+              Restablecer
+            </Button>
+          )}
+        </div>
+        <div
+          className={cn(
+            "space-y-1.5 w-full sm:w-[180px]",
+            mobileFiltrosOpen ? "block" : "hidden sm:block",
+          )}
+        >
           <Label className="text-xs">Estado</Label>
           <Select
             value={estadoFiltro}
@@ -263,7 +302,7 @@ function EmpleadosNominaSection() {
         </div>
       </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+      <section className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-4">
         <AdminMetricCard
           label="Total empleados"
           icon={Users}
@@ -810,7 +849,7 @@ function AccesosSection() {
         </p>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+      <section className="grid grid-cols-2 sm:grid-cols-2 gap-2.5 sm:gap-4 mb-4">
         <AdminMetricCard
           label="Cuentas en el sistema"
           icon={Users}

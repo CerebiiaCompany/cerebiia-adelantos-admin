@@ -285,57 +285,56 @@ function ConfiguracionPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <AdminPageHeader
-          eyebrow="Parámetros"
-          title="Configuración de adelantos"
-          subtitle="Jerarquía dinámica: 1º Empleado > 2º Empresa > 3º Global. Límites, tarifas y reglas personalizadas."
-        />
-
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <div className="w-64 sm:w-72">
-            <Select
-              value={selectedEmpresaId}
-              onValueChange={(val) => {
-                setSelectedEmpresaId(val);
-                setError(null);
-                setSuccess(null);
-              }}
-            >
-              <SelectTrigger className="w-full h-9 bg-card border shadow-xs text-xs sm:text-sm">
-                <SelectValue placeholder="Configuración global" />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                <SelectItem value="global">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Globe className="size-3.5 text-primary" />
-                    <span>Configuración Global</span>
-                  </div>
-                </SelectItem>
-                {empresas.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.id}>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="size-3.5 text-muted-foreground" />
-                      <span className="truncate max-w-[200px]">{emp.nombre}</span>
+      <AdminPageHeader
+        eyebrow="Parámetros"
+        title="Configuración de adelantos"
+        subtitle="Jerarquía dinámica: 1º Empleado > 2º Empresa > 3º Global. Límites, tarifas y reglas personalizadas."
+        aside={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+            <div className="w-full sm:w-64">
+              <Select
+                value={selectedEmpresaId}
+                onValueChange={(val) => {
+                  setSelectedEmpresaId(val);
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                <SelectTrigger className="w-full h-9 bg-card border shadow-xs text-xs sm:text-sm">
+                  <SelectValue placeholder="Configuración global" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="global">
+                    <div className="flex items-center gap-2 font-medium">
+                      <Globe className="size-3.5 text-primary" />
+                      <span>Configuración Global</span>
                     </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                  {empresas.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="size-3.5 text-muted-foreground" />
+                        <span className="truncate max-w-[200px]">{emp.nombre}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={openNewCustomRuleModal}
-            className="gap-1.5 h-9 shrink-0 shadow-xs"
-          >
-            <SlidersHorizontal className="size-3.5" />
-            <span>Personalizar %</span>
-          </Button>
-        </div>
-      </div>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={openNewCustomRuleModal}
+              className="gap-1.5 h-9 w-full sm:w-auto shrink-0 shadow-xs"
+            >
+              <SlidersHorizontal className="size-3.5" />
+              <span>Personalizar %</span>
+            </Button>
+          </div>
+        }
+      />
 
       {/* Banner de Origen de Configuración cuando se filtra por empresa */}
       {selectedEmpresaId && selectedEmpresaId !== "global" && config && (
@@ -402,7 +401,7 @@ function ConfiguracionPage() {
       ) : (
         <>
           {/* Métricas clave */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <section className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
             <AdminMetricCard
               label="% máximo adelanto"
               icon={Percent}

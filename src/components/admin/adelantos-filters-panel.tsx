@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { formatCOP, estadoLabel, type EstadoAdelanto } from "@/lib/admin-store";
 import { monthLabel } from "@/lib/adelantos-filters";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { AnimatedNumber } from "@/components/admin/animated-number";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Eraser, FileSpreadsheet, Loader2, Clock, Eye, Coins } from "lucide-react";
+import { CheckCircle2, Eraser, FileSpreadsheet, Loader2, Clock, Eye, Coins, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,92 +60,134 @@ export function AdelantosFiltersPanel({
   onExportExcel,
   exporting = false,
 }: AdelantosFiltersPanelProps) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
   return (
     <div className="admin-panel-card space-y-4 p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3">
-      {showFechaRango && setFechaDesde && setFechaHasta && (
-        <>
+      {/* Botón desplegable visible exclusivamente en móvil para ahorrar espacio vertical */}
+      <div className="flex sm:hidden items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setMobileExpanded((prev) => !prev)}
+          className="gap-2 text-xs font-semibold h-9 rounded-xl border-primary/20 bg-primary/[0.04] text-primary"
+        >
+          <SlidersHorizontal className="size-3.5" />
+          <span>Filtros</span>
+          {hasActiveFilters && (
+            <span className="size-2 rounded-full bg-primary animate-pulse" />
+          )}
+          {mobileExpanded ? (
+            <ChevronUp className="size-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          )}
+        </Button>
+
+        <div className="text-right">
+          <span className="text-xs text-muted-foreground">
+            <strong className="text-foreground font-bold">{filteredCount}</strong> solicitudes
+          </span>
+        </div>
+      </div>
+
+      {/* Grid de filtros: Colapsable en móvil, siempre expandido en sm+ */}
+      <div
+        className={cn(
+          "grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3",
+          mobileExpanded ? "grid" : "hidden sm:grid lg:flex",
+        )}
+      >
+        {showFechaRango && setFechaDesde && setFechaHasta && (
+          <>
+            <div className="space-y-1.5 w-full sm:w-auto">
+              <Label className="text-xs" htmlFor="fecha-desde">
+                Desde
+              </Label>
+              <Input
+                id="fecha-desde"
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                className="w-full sm:w-[160px]"
+              />
+            </div>
+            <div className="space-y-1.5 w-full sm:w-auto">
+              <Label className="text-xs" htmlFor="fecha-hasta">
+                Hasta
+              </Label>
+              <Input
+                id="fecha-hasta"
+                type="date"
+                value={fechaHasta}
+                min={fechaDesde || undefined}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                className="w-full sm:w-[160px]"
+              />
+            </div>
+          </>
+        )}
+        {showMes && setMes && (
           <div className="space-y-1.5 w-full sm:w-auto">
-            <Label className="text-xs" htmlFor="fecha-desde">
-              Desde
-            </Label>
-            <Input
-              id="fecha-desde"
-              type="date"
-              value={fechaDesde}
-              onChange={(e) => setFechaDesde(e.target.value)}
-              className="w-full sm:w-[160px]"
-            />
+            <Label className="text-xs">Mes</Label>
+            <Select value={mes} onValueChange={setMes}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los meses</SelectItem>
+                {months.map((m) => (
+                  <SelectItem key={m} value={m} className="capitalize">
+                    {monthLabel(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-1.5 w-full sm:w-auto">
-            <Label className="text-xs" htmlFor="fecha-hasta">
-              Hasta
-            </Label>
-            <Input
-              id="fecha-hasta"
-              type="date"
-              value={fechaHasta}
-              min={fechaDesde || undefined}
-              onChange={(e) => setFechaHasta(e.target.value)}
-              className="w-full sm:w-[160px]"
-            />
-          </div>
-        </>
-      )}
-      {showMes && setMes && (
+        )}
         <div className="space-y-1.5 w-full sm:w-auto">
-          <Label className="text-xs">Mes</Label>
-          <Select value={mes} onValueChange={setMes}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+          <Label className="text-xs">Empresa</Label>
+          <Select value={empresaId} onValueChange={setEmpresaId}>
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los meses</SelectItem>
-              {months.map((m) => (
-                <SelectItem key={m} value={m} className="capitalize">
-                  {monthLabel(m)}
+              <SelectItem value="all">Todas</SelectItem>
+              {empresas.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.nombre}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-      )}
-      <div className="space-y-1.5 w-full sm:w-auto">
-        <Label className="text-xs">Empresa</Label>
-        <Select value={empresaId} onValueChange={setEmpresaId}>
-          <SelectTrigger className="w-full sm:w-[220px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {empresas.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5 w-full sm:w-auto">
-        <Label className="text-xs">Estado</Label>
-        <Select value={estado} onValueChange={setEstado}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {(Object.keys(estadoLabel) as EstadoAdelanto[]).map((e) => (
-              <SelectItem key={e} value={e}>
-                {estadoLabel[e]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="space-y-1.5 w-full sm:w-auto">
+          <Label className="text-xs">Estado</Label>
+          <Select value={estado} onValueChange={setEstado}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {(Object.keys(estadoLabel) as EstadoAdelanto[]).map((e) => (
+                <SelectItem key={e} value={e}>
+                  {estadoLabel[e]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
-        <div className="text-left sm:text-right">
+      {/* Acciones y resultados */}
+      <div
+        className={cn(
+          "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4",
+          mobileExpanded ? "flex" : "hidden sm:flex",
+        )}
+      >
+        <div className="text-left sm:text-right hidden sm:block">
           <div className="admin-kpi-label">Mostrando</div>
           <div className="admin-kpi-value text-lg sm:text-xl mt-1">{filteredCount}</div>
           <div className="admin-kpi-sub mt-0.5">solicitudes filtradas</div>

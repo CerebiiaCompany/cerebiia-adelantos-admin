@@ -152,7 +152,7 @@ function AuditoriasPage() {
         </p>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <section className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
         <AdminMetricCard
           label="Total en listado"
           icon={ClipboardList}

@@ -19,7 +19,7 @@ export function AdminPageHeader({
   return (
     <header
       className={cn(
-        "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
+        "flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end sm:justify-between w-full min-w-0",
         className,
       )}
     >
@@ -29,7 +29,7 @@ export function AdminPageHeader({
         {subtitle && <p className="admin-subtitle">{subtitle}</p>}
       </div>
       {aside && (
-        <div className="w-full sm:w-auto shrink-0 flex flex-wrap gap-3 [&_button]:w-full sm:[&_button]:w-auto">
+        <div className="w-full sm:w-auto shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3">
           {aside}
         </div>
       )}

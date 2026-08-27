@@ -153,16 +153,16 @@ export function DetalleAdelantosCobroDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl xl:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 rounded-3xl border bg-background shadow-2xl">
+      <DialogContent className="w-[96vw] sm:max-w-5xl xl:max-w-6xl max-h-[92svh] sm:max-h-[92vh] overflow-y-auto sm:overflow-hidden flex flex-col p-0 rounded-2xl sm:rounded-3xl border bg-background shadow-2xl">
         {/* HEADER */}
-        <div className="p-6 border-b bg-gradient-to-br from-indigo-500/10 via-background to-purple-500/5 dark:from-indigo-950/30 dark:via-background dark:to-purple-950/20 shrink-0">
+        <div className="p-4 sm:p-6 border-b bg-gradient-to-br from-indigo-500/10 via-background to-purple-500/5 dark:from-indigo-950/30 dark:via-background dark:to-purple-950/20 shrink-0">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="size-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white grid place-items-center shadow-lg shadow-indigo-600/25 shrink-0">
-                <ReceiptText className="size-6" />
+            <div className="flex items-center gap-3">
+              <div className="size-10 sm:size-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white grid place-items-center shadow-lg shadow-indigo-600/25 shrink-0">
+                <ReceiptText className="size-5 sm:size-6" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
                   Adelantos y Cuotas a Cobrar
                   <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200/50">
                     {periodoLabel || periodo}
@@ -176,7 +176,7 @@ export function DetalleAdelantosCobroDialog({
           </div>
 
           {/* DATOS DE LA EMPRESA */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs pt-3 border-t border-border/50">
+          <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs pt-2.5 sm:pt-3 border-t border-border/50">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <Building2 className="size-4 text-primary shrink-0" />
               <span className="font-semibold">{empresa.empresa_nombre}</span>
@@ -196,40 +196,40 @@ export function DetalleAdelantosCobroDialog({
         </div>
 
         {/* MÉTRICAS KPI & CONTROLES */}
-        <div className="p-6 pb-3 space-y-4 shrink-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-2xl border border-primary/25 bg-primary/5 shadow-xs">
-              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+        <div className="p-4 sm:p-6 pb-2 sm:pb-3 space-y-3 sm:space-y-4 shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-primary/25 bg-primary/5 shadow-xs">
+              <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                 <Wallet className="size-3.5 text-primary" /> Total a cobrar este mes
               </p>
-              <p className="text-lg sm:text-xl font-normal text-primary mt-1 font-mono tracking-tight">
+              <p className="text-base sm:text-xl font-bold text-primary mt-1 font-mono tracking-tight">
                 {formatCOP(totalPendienteCobrar)}
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
-              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+            <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
+              <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                 <Coins className="size-3.5 text-emerald-600" /> Total solicitado
               </p>
-              <p className="text-lg sm:text-xl font-normal text-foreground mt-1 font-mono tracking-tight">
+              <p className="text-base sm:text-xl font-bold text-foreground mt-1 font-mono tracking-tight">
                 {formatCOP(totalSolicitado)}
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
-              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+            <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
+              <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                 <Users className="size-3.5 text-blue-600" /> Empleados
               </p>
-              <p className="text-lg sm:text-xl font-normal text-foreground mt-1 font-mono tracking-tight">
+              <p className="text-base sm:text-xl font-bold text-foreground mt-1 font-mono tracking-tight">
                 {totalEmpleados}
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
-              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+            <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 bg-muted/30 shadow-xs">
+              <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                 <Layers className="size-3.5 text-purple-600" /> Cuotas en periodo
               </p>
-              <p className="text-lg sm:text-xl font-normal text-foreground mt-1 font-mono tracking-tight">
+              <p className="text-base sm:text-xl font-bold text-foreground mt-1 font-mono tracking-tight">
                 {totalCuotas}
               </p>
             </div>
@@ -300,7 +300,7 @@ export function DetalleAdelantosCobroDialog({
         </div>
 
         {/* TABLA DE ADELANTOS / CUOTAS CON SCROLL HORIZONTAL Y VERTICAL */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 sm:min-h-0 sm:overflow-y-auto px-3 sm:px-6 pb-4 sm:pb-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground text-xs">
               <Loader2 className="size-7 animate-spin text-primary" />
@@ -518,7 +518,7 @@ export function DetalleAdelantosCobroDialog({
         </div>
 
         {/* FOOTER */}
-        <DialogFooter className="p-4 px-6 border-t bg-muted/20 flex items-center justify-between shrink-0">
+        <DialogFooter className="p-3 sm:p-4 px-4 sm:px-6 border-t bg-muted/20 flex items-center justify-between shrink-0 sticky bottom-0 sm:static bg-background/95 backdrop-blur-sm">
           <p className="text-xs text-muted-foreground hidden sm:block">
             {vista === "detalle"
               ? `${detallesFiltrados.length} cuota(s) registradas`
@@ -528,7 +528,7 @@ export function DetalleAdelantosCobroDialog({
           <Button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-xl px-6 font-semibold shadow-xs cursor-pointer"
+            className="w-full sm:w-auto rounded-xl px-6 font-semibold shadow-xs cursor-pointer"
           >
             Cerrar
           </Button>

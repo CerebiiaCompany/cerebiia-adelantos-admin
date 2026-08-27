@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/historial-adelantos")({
   head: () => ({ meta: [{ title: "Historial de adelantos — Panel" }] }),
@@ -56,6 +57,11 @@ function HistorialAdelantosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<HistorialAdelantosAdminResponse | null>(null);
+  const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
+
+  const hasActiveFilters = Boolean(
+    busquedaInput || empresaId !== "all" || estado !== "all" || cuotas !== "all" || fechaDesde || fechaHasta
+  );
 
   const maxCuotas = Math.max(DEFAULT_MAX_CUOTAS, numeroMaximoCuotas || DEFAULT_MAX_CUOTAS);
   const opcionesCuotas = useMemo(
@@ -149,123 +155,165 @@ function HistorialAdelantosPage() {
         </p>
       )}
 
-      <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 sm:gap-4 p-4 sm:p-5">
-        <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
-          <Label htmlFor="hist-busqueda">Buscar</Label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="hist-busqueda"
-              className="pl-9"
-              placeholder="Nombre o documento del empleado…"
-              value={busquedaInput}
-              onChange={(e) => setBusquedaInput(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Empresa</Label>
-          <Select
-            value={empresaId}
-            onValueChange={(v) => {
-              setEmpresaId(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {empresas.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Estado</Label>
-          <Select
-            value={estado}
-            onValueChange={(v) => {
-              setEstado(v as EstadoSolicitudApi | "all");
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {ESTADOS.map((e) => (
-                <SelectItem key={e} value={e}>
-                  {estadoLabel[e as EstadoAdelanto]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Cuotas</Label>
-          <Select
-            value={cuotas}
-            onValueChange={(v) => {
-              setCuotas(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {opcionesCuotas.map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n === 1 ? "1 cuota" : `${n} cuotas`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="hist-desde">Desde</Label>
-          <Input
-            id="hist-desde"
-            type="date"
-            value={fechaDesde}
-            onChange={(e) => {
-              setFechaDesde(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="hist-hasta">Hasta</Label>
-          <Input
-            id="hist-hasta"
-            type="date"
-            value={fechaHasta}
-            onChange={(e) => {
-              setFechaHasta(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div className="flex items-end sm:col-span-2 xl:col-span-7">
+      <div className="admin-panel-card space-y-4 p-4 sm:p-5">
+        {/* Botón Filtros para Móvil */}
+        <div className="flex sm:hidden items-center justify-between gap-2">
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full sm:w-auto"
-            onClick={clearFilters}
+            size="sm"
+            onClick={() => setMobileFiltrosOpen((prev) => !prev)}
+            className="gap-2 text-xs font-semibold h-9 rounded-xl border-primary/20 bg-primary/[0.04] text-primary"
           >
-            Limpiar filtros
+            <SlidersHorizontal className="size-3.5" />
+            <span>Filtros</span>
+            {hasActiveFilters && (
+              <span className="size-2 rounded-full bg-primary animate-pulse" />
+            )}
+            {mobileFiltrosOpen ? (
+              <ChevronUp className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            )}
           </Button>
+
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-xs text-muted-foreground h-8"
+            >
+              Limpiar
+            </Button>
+          )}
+        </div>
+
+        {/* Campos de Filtros: Colapsable en móvil, visible en sm+ */}
+        <div
+          className={cn(
+            "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 sm:gap-4",
+            mobileFiltrosOpen ? "grid" : "hidden sm:grid",
+          )}
+        >
+          <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
+            <Label htmlFor="hist-busqueda">Buscar</Label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="hist-busqueda"
+                className="pl-9"
+                placeholder="Nombre o documento del empleado…"
+                value={busquedaInput}
+                onChange={(e) => setBusquedaInput(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Empresa</Label>
+            <Select
+              value={empresaId}
+              onValueChange={(v) => {
+                setEmpresaId(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {empresas.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Estado</Label>
+            <Select
+              value={estado}
+              onValueChange={(v) => {
+                setEstado(v as EstadoSolicitudApi | "all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {ESTADOS.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {estadoLabel[e as EstadoAdelanto]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Cuotas</Label>
+            <Select
+              value={cuotas}
+              onValueChange={(v) => {
+                setCuotas(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {opcionesCuotas.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n === 1 ? "1 cuota" : `${n} cuotas`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="hist-desde">Desde</Label>
+            <Input
+              id="hist-desde"
+              type="date"
+              value={fechaDesde}
+              onChange={(e) => {
+                setFechaDesde(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="hist-hasta">Hasta</Label>
+            <Input
+              id="hist-hasta"
+              type="date"
+              value={fechaHasta}
+              onChange={(e) => {
+                setFechaHasta(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="flex items-end sm:col-span-2 xl:col-span-7">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full sm:w-auto"
+              onClick={clearFilters}
+            >
+              Limpiar filtros
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-4">
         <AdelantosStat
           label="Total solicitudes"
           value={inds?.total_solicitudes ?? 0}

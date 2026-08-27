@@ -7,6 +7,7 @@ type AdminMetricCardProps = {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
+  subtext?: ReactNode;
   icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   accent?: boolean;
   iconTone?: MetricIconTone;
@@ -48,6 +49,7 @@ export function AdminMetricCard({
   label,
   value,
   sub,
+  subtext,
   icon: Icon,
   accent,
   iconTone = "default",
@@ -55,6 +57,7 @@ export function AdminMetricCard({
 }: AdminMetricCardProps) {
   const tone = ICON_TONE[iconTone];
   const useColoredIcon = iconTone !== "default" && Icon;
+  const subtitle = sub ?? subtext;
 
   return (
     <div
@@ -67,18 +70,18 @@ export function AdminMetricCard({
       {/* MARCA DE AGUA: Icono grande y tenue en la esquina inferior derecha */}
       {Icon && (
         <div
-          className="absolute -bottom-4 -right-3 pointer-events-none select-none text-primary/[0.04] dark:text-primary/[0.06] transition-all duration-500 ease-out group-hover:scale-110 group-hover:text-primary/[0.075] dark:group-hover:text-primary/[0.10]"
+          className="absolute -bottom-3 -right-2 sm:-bottom-4 sm:-right-3 pointer-events-none select-none text-primary/[0.04] dark:text-primary/[0.06] transition-all duration-500 ease-out group-hover:scale-110 group-hover:text-primary/[0.075] dark:group-hover:text-primary/[0.10]"
           aria-hidden="true"
         >
-          <Icon className="size-24 sm:size-28" strokeWidth={1.25} />
+          <Icon className="size-16 sm:size-24 md:size-28" strokeWidth={1.25} />
         </div>
       )}
 
       <div className="relative z-10">
-        <div className="flex items-start justify-between gap-2 mb-3 sm:mb-4 min-w-0">
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-4 min-w-0">
           <span
             className={cn(
-              "text-xs sm:text-sm uppercase tracking-wide font-semibold leading-snug line-clamp-2 min-w-0",
+              "text-[10px] sm:text-xs uppercase tracking-wide font-semibold leading-tight line-clamp-2 min-w-0",
               accent ? "text-primary" : "text-muted-foreground",
             )}
           >
@@ -87,7 +90,7 @@ export function AdminMetricCard({
           {Icon && (
             <div
               className={cn(
-                "size-8 sm:size-9 rounded-2xl grid place-items-center shrink-0 border transition-transform duration-300 group-hover:scale-105",
+                "size-7 sm:size-9 rounded-xl sm:rounded-2xl grid place-items-center shrink-0 border transition-transform duration-300 group-hover:scale-105",
                 accent
                   ? "bg-primary/10 text-primary border-primary/25"
                   : useColoredIcon
@@ -97,7 +100,7 @@ export function AdminMetricCard({
             >
               <Icon
                 className={cn(
-                  "size-4 sm:size-5 will-change-transform",
+                  "size-3.5 sm:size-4.5 will-change-transform",
                   useColoredIcon ? tone.icon : accent ? "text-primary" : "text-primary",
                   useColoredIcon && tone.hoverAnim,
                 )}
@@ -107,7 +110,7 @@ export function AdminMetricCard({
           )}
         </div>
         <div className={cn("admin-kpi-value min-w-0", accent && "text-primary")}>{value}</div>
-        {sub && <div className="admin-kpi-sub">{sub}</div>}
+        {subtitle && <div className="admin-kpi-sub">{subtitle}</div>}
       </div>
     </div>
   );

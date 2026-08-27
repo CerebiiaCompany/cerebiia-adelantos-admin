@@ -58,7 +58,11 @@ import {
   Check,
   FileText,
   Eye,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { LiberarPagosDialog } from "@/components/admin/liberar-pagos-dialog";
 import { InformeCuotasLiberadasDialog } from "@/components/admin/informe-cuotas-liberadas-dialog";
 import { DetalleAdelantosCobroDialog } from "@/components/admin/detalle-adelantos-cobro-dialog";
@@ -124,6 +128,7 @@ function ControlPagosPage() {
   const [loading, setLoading] = useState(true);
   const [actionKey, setActionKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
   const [liberarModalEmpresa, setLiberarModalEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
   const [liberarModalOpen, setLiberarModalOpen] = useState(false);
   const [detalleModalEmpresa, setDetalleModalEmpresa] = useState<ControlPagoEmpresaApi | null>(null);
@@ -319,81 +324,115 @@ function ControlPagosPage() {
         </p>
       )}
 
-      <div className="admin-panel-card grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5">
-        <div className="space-y-1.5">
-          <Label>Periodo</Label>
-          <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Seleccionar periodo" />
-            </SelectTrigger>
-            <SelectContent>
-              {periodos.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Mes actual y meses con cuotas pendientes de cobro.
-          </p>
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label>Empresa</Label>
-            {busquedaEmpresa.trim() && (
-              <span className="text-[11px] font-medium text-primary">
-                {empresasFiltradas.length} encontrada{empresasFiltradas.length === 1 ? "" : "s"}
-              </span>
+      <div className="admin-panel-card space-y-4 p-4 sm:p-5">
+        {/* Botón Filtros para Móvil */}
+        <div className="flex sm:hidden items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setMobileFiltrosOpen((prev) => !prev)}
+            className="gap-2 text-xs font-semibold h-9 rounded-xl border-primary/20 bg-primary/[0.04] text-primary"
+          >
+            <SlidersHorizontal className="size-3.5" />
+            <span>Filtros</span>
+            {Boolean(periodo || empresaId !== "all" || busquedaEmpresa) && (
+              <span className="size-2 rounded-full bg-primary animate-pulse" />
             )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={busquedaEmpresa}
-                onChange={(e) => setBusquedaEmpresa(e.target.value)}
-                placeholder="Filtrar por iniciales..."
-                className="h-10 pl-9 pr-8 text-xs rounded-xl border-border/80 focus-visible:ring-primary/20"
-              />
-              {busquedaEmpresa && (
-                <button
-                  type="button"
-                  onClick={() => setBusquedaEmpresa("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md transition-colors"
-                  title="Limpiar búsqueda"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
-            </div>
-            <Select value={empresaId} onValueChange={setEmpresaId}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue placeholder="Seleccionar empresa" />
+            {mobileFiltrosOpen ? (
+              <ChevronUp className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            )}
+          </Button>
+
+          <span className="text-xs text-muted-foreground font-medium">
+            Periodo: <strong className="text-foreground">{selected?.label?.split(" ")[0]}</strong>
+          </span>
+        </div>
+
+        {/* Campos de Filtros: Colapsables en móvil, visibles en sm+ */}
+        <div
+          className={cn(
+            "grid grid-cols-1 sm:grid-cols-2 gap-4",
+            mobileFiltrosOpen ? "grid" : "hidden sm:grid",
+          )}
+        >
+          <div className="space-y-1.5">
+            <Label>Periodo</Label>
+            <Select value={periodo} onValueChange={setPeriodo}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Seleccionar periodo" />
               </SelectTrigger>
-              <SelectContent className="max-h-64">
-                <SelectItem value="all">Todas las empresas</SelectItem>
-                {empresasFiltradas.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-muted-foreground">
-                    Sin coincidencias para "{busquedaEmpresa}"
-                  </div>
-                ) : (
-                  empresasFiltradas.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.nombre}
-                    </SelectItem>
-                  ))
-                )}
+              <SelectContent>
+                {periodos.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Mes actual y meses con cuotas pendientes de cobro.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Escribe las iniciales para filtrar el selector de empresas.
-          </p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>Empresa</Label>
+              {busquedaEmpresa.trim() && (
+                <span className="text-[11px] font-medium text-primary">
+                  {empresasFiltradas.length} encontrada{empresasFiltradas.length === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={busquedaEmpresa}
+                  onChange={(e) => setBusquedaEmpresa(e.target.value)}
+                  placeholder="Filtrar por iniciales..."
+                  className="h-10 pl-9 pr-8 text-xs rounded-xl border-border/80 focus-visible:ring-primary/20"
+                />
+                {busquedaEmpresa && (
+                  <button
+                    type="button"
+                    onClick={() => setBusquedaEmpresa("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md transition-colors"
+                    title="Limpiar búsqueda"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              <Select value={empresaId} onValueChange={setEmpresaId}>
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue placeholder="Seleccionar empresa" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="all">Todas las empresas</SelectItem>
+                  {empresasFiltradas.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-muted-foreground">
+                      Sin coincidencias para "{busquedaEmpresa}"
+                    </div>
+                  ) : (
+                    empresasFiltradas.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.nombre}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Escribe las iniciales para filtrar el selector de empresas.
+            </p>
+          </div>
         </div>
       </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <section className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <AdminMetricCard
           label="Total a cobrar"
           icon={Landmark}

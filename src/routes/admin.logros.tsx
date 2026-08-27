@@ -77,6 +77,8 @@ import {
   HelpCircle,
   Lightbulb,
   BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -274,6 +276,7 @@ function LogrosAdminPage() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<string>("all");
   const [filtroRegla, setFiltroRegla] = useState<string>("all");
+  const [mobileFiltrosOpen, setMobileFiltrosOpen] = useState(false);
 
   // Modal de Crear / Editar
   const [modalOpen, setModalOpen] = useState(false);
@@ -519,44 +522,44 @@ function LogrosAdminPage() {
   return (
     <div key={animationKey} className="admin-page space-y-6">
       {/* HEADER DE LA PÁGINA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <AdminPageHeader
-          eyebrow="Gamificación"
-          title="Logros e insignias"
-          subtitle="Administra el catálogo de insignias, reglas de desbloqueo y recompensas en puntos para los empleados."
-        />
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {showGenerateButton && (
+      <AdminPageHeader
+        eyebrow="Gamificación"
+        title="Logros e insignias"
+        subtitle="Administra el catálogo de insignias, reglas de desbloqueo y recompensas en puntos para los empleados."
+        aside={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+            {showGenerateButton && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={generatingDefaults || loading}
+                onClick={() => void handleGenerateDefaultLogros()}
+                className="h-10 gap-2 font-medium shadow-xs border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-xl w-full sm:w-auto"
+              >
+                {generatingDefaults ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Creando 10 insignias…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="size-4 text-primary" />
+                    Generar 10 insignias por defecto
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               type="button"
-              variant="outline"
-              disabled={generatingDefaults || loading}
-              onClick={() => void handleGenerateDefaultLogros()}
-              className="h-10 gap-2 font-medium shadow-xs border-primary/40 text-primary hover:bg-primary/10 transition-all rounded-xl"
+              onClick={openCreateModal}
+              className="h-10 gap-2 font-semibold shadow-sm shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl w-full sm:w-auto"
             >
-              {generatingDefaults ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Creando 10 insignias…
-                </>
-              ) : (
-                <>
-                  <Wand2 className="size-4 text-primary" />
-                  Generar 10 insignias por defecto
-                </>
-              )}
+              <Plus className="size-4" />
+              Nueva insignia
             </Button>
-          )}
-          <Button
-            type="button"
-            onClick={openCreateModal}
-            className="h-10 gap-2 font-semibold shadow-sm shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
-          >
-            <Plus className="size-4" />
-            Nueva insignia
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* ALERTAS */}
       {error && (
@@ -592,7 +595,7 @@ function LogrosAdminPage() {
       )}
 
       {/* METRIC CARDS / KPIS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <AdminMetricCard
           label="Total de insignias"
           value={
@@ -646,7 +649,7 @@ function LogrosAdminPage() {
 
       {/* BARRA DE BÚSQUEDA Y FILTROS */}
       <div className="admin-panel-card p-4 space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -657,7 +660,49 @@ function LogrosAdminPage() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex sm:hidden justify-between items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMobileFiltrosOpen((prev) => !prev)}
+              className="gap-2 text-xs font-semibold h-9 rounded-xl border-primary/20 bg-primary/[0.04] text-primary"
+            >
+              <SlidersHorizontal className="size-3.5" />
+              <span>Filtros</span>
+              {(filtroEstado !== "all" || filtroRegla !== "all") && (
+                <span className="size-2 rounded-full bg-primary animate-pulse" />
+              )}
+              {mobileFiltrosOpen ? (
+                <ChevronUp className="size-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="size-3.5 text-muted-foreground" />
+              )}
+            </Button>
+
+            {(busqueda || filtroEstado !== "all" || filtroRegla !== "all") && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setBusqueda("");
+                  setFiltroEstado("all");
+                  setFiltroRegla("all");
+                }}
+                className="text-xs text-muted-foreground h-8"
+              >
+                Limpiar
+              </Button>
+            )}
+          </div>
+
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2.5 w-full sm:w-auto",
+              mobileFiltrosOpen ? "flex" : "hidden sm:flex",
+            )}
+          >
             <div className="w-full sm:w-auto min-w-[140px]">
               <Select value={filtroEstado} onValueChange={setFiltroEstado}>
                 <SelectTrigger className="h-10 rounded-xl">
@@ -695,7 +740,7 @@ function LogrosAdminPage() {
                   setFiltroEstado("all");
                   setFiltroRegla("all");
                 }}
-                className="h-10 text-xs text-muted-foreground hover:text-foreground"
+                className="hidden sm:inline-flex h-10 text-xs text-muted-foreground hover:text-foreground"
               >
                 Limpiar
               </Button>

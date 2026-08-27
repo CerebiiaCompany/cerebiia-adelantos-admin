@@ -132,15 +132,15 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
 
   return (
     <Dialog open={!!solicitudId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border bg-background shadow-2xl">
+      <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[92svh] overflow-y-auto p-0 rounded-2xl sm:rounded-3xl border bg-background shadow-2xl">
         {/* HEADER */}
-        <div className="p-6 border-b bg-gradient-to-br from-primary/10 via-background to-purple-500/5 dark:from-primary/20 dark:via-background dark:to-purple-950/20">
+        <div className="p-4 sm:p-6 border-b bg-gradient-to-br from-primary/10 via-background to-purple-500/5 dark:from-primary/20 dark:via-background dark:to-purple-950/20">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-primary/15 text-primary grid place-items-center shrink-0">
+            <div className="size-10 rounded-xl sm:rounded-2xl bg-primary/15 text-primary grid place-items-center shrink-0">
               <FileText className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
+              <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">
                 Detalles de solicitud
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -150,7 +150,7 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
               <Loader2 className="size-8 animate-spin text-primary" />
@@ -165,13 +165,13 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
           )}
 
           {detalle && !loading && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* BENEFICIARIO & ESTADO */}
-              <div className="rounded-2xl border border-border/80 bg-surface/80 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+              <div className="rounded-2xl border border-border/80 bg-surface/80 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <User className="size-4 text-primary shrink-0" />
-                    <span className="text-base font-semibold text-foreground tracking-tight">
+                    <span className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
                       {detalle.empleado.nombre}
                     </span>
                     <span className="text-xs font-mono text-muted-foreground">
@@ -209,26 +209,26 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
               </div>
 
               {/* TABLITA CONDICIONES FINANCIERAS */}
-              <div className="overflow-hidden rounded-2xl border border-primary/20 bg-primary/[0.04] dark:bg-primary/[0.08]">
-                <table className="w-full text-xs">
+              <div className="overflow-x-auto rounded-2xl border border-primary/20 bg-primary/[0.04] dark:bg-primary/[0.08]">
+                <table className="min-w-[28rem] sm:min-w-full w-full text-xs">
                   <thead>
                     <tr className="border-b border-primary/15 bg-primary/[0.06] dark:bg-primary/[0.12] text-muted-foreground">
-                      <th className="py-2.5 px-4 text-left font-medium">Monto solicitado</th>
-                      <th className="py-2.5 px-4 text-right font-medium">Monto neto</th>
-                      <th className="py-2.5 px-4 text-right font-medium">Comisión</th>
-                      <th className="py-2.5 px-4 text-center font-medium">Cuotas</th>
-                      <th className="py-2.5 px-4 text-center font-medium">Plazo (días)</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-left font-medium">Monto solicitado</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-right font-medium">Monto neto</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-right font-medium">Comisión</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center font-medium">Cuotas</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center font-medium">Plazo (días)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="py-3 px-4 text-left font-normal tabular font-mono text-foreground text-sm">
+                      <td className="py-3 px-3 sm:px-4 text-left font-normal tabular font-mono text-foreground text-xs sm:text-sm">
                         {formatCOP(Number(detalle.monto))}
                       </td>
-                      <td className="py-3 px-4 text-right font-normal tabular font-mono text-primary text-sm">
+                      <td className="py-3 px-3 sm:px-4 text-right font-normal tabular font-mono text-primary text-xs sm:text-sm">
                         {formatCOP(Number(detalle.monto_neto))}
                       </td>
-                      <td className="py-3 px-4 text-right font-normal tabular font-mono text-foreground text-sm">
+                      <td className="py-3 px-3 sm:px-4 text-right font-normal tabular font-mono text-foreground text-xs sm:text-sm">
                         {Number(detalle.monto_neto) >= Number(detalle.monto) ||
                         (detalle.tarifa_total != null && Number(detalle.tarifa_total) === 0) ? (
                           <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-normal text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -242,10 +242,10 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                           )
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center font-normal tabular font-mono text-foreground text-sm">
+                      <td className="py-3 px-3 sm:px-4 text-center font-normal tabular font-mono text-foreground text-xs sm:text-sm">
                         {detalle.numero_cuotas_snapshot}
                       </td>
-                      <td className="py-3 px-4 text-center font-normal tabular font-mono text-foreground text-sm">
+                      <td className="py-3 px-3 sm:px-4 text-center font-normal tabular font-mono text-foreground text-xs sm:text-sm">
                         {detalle.plazo_dias_snapshot}
                       </td>
                     </tr>
@@ -264,11 +264,11 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
               )}
 
               {/* VALIDACIÓN OPERATIVA & GRÁFICA */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
                 {/* VALIDACIÓN OPERATIVA */}
                 <div
                   className={cn(
-                    "rounded-2xl border border-border bg-surface/60 p-5 space-y-4 shadow-xs",
+                    "rounded-2xl border border-border bg-surface/60 p-4 sm:p-5 space-y-3 sm:space-y-4 shadow-xs",
                     saldoConsumo ? "lg:col-span-7" : "lg:col-span-12",
                   )}
                 >
@@ -284,26 +284,26 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                   </p>
 
                   {tieneContexto ? (
-                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <div className="rounded-xl bg-background/80 border border-border/60 p-3">
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-1">
+                      <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3">
                         <dt className={labelClass}>Disponible antes</dt>
                         <dd className={valueClass}>{moneyOrDash(detalle.saldo_disponible_antes)}</dd>
                       </div>
-                      <div className="rounded-xl bg-background/80 border border-border/60 p-3">
+                      <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3">
                         <dt className={labelClass}>Disponible después</dt>
                         <dd className={valueClass}>{moneyOrDash(detalle.saldo_disponible_despues)}</dd>
                       </div>
-                      <div className="rounded-xl bg-background/80 border border-border/60 p-3">
+                      <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3">
                         <dt className={labelClass}>Nómina antes</dt>
                         <dd className={valueClass}>{moneyOrDash(detalle.nomina_antes)}</dd>
                         <p className={noteClass}>Salario − adelantos previos del mes</p>
                       </div>
-                      <div className="rounded-xl bg-background/80 border border-border/60 p-3">
+                      <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3">
                         <dt className={labelClass}>Nómina después</dt>
                         <dd className={valueClass}>{moneyOrDash(detalle.nomina_despues)}</dd>
                         <p className={noteClass}>Salario − adelantos del mes (incl. esta)</p>
                       </div>
-                      <div className="rounded-xl bg-background/80 border border-border/60 p-3 sm:col-span-2">
+                      <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3 sm:col-span-2">
                         <dt className={labelClass}>Total adelantos en el mes</dt>
                         <dd className={valueClass}>{moneyOrDash(detalle.total_adelantos_mes)}</dd>
                         <p className={noteClass}>
