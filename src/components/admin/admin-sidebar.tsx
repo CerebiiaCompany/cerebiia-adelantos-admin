@@ -47,13 +47,13 @@ export function AdminSidebar({
       className="border-r border-sidebar-border bg-sidebar/95 backdrop-blur-md transition-all duration-300 flex flex-col justify-between"
     >
       {/* HEADER CON BRANDING Y CONTENEDOR ORIGINAL DEL LOGO */}
-      <SidebarHeader className="p-6 pb-4 group-data-[collapsible=icon]:p-3 relative overflow-hidden shrink-0">
+      <SidebarHeader className="p-6 pb-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pt-3 relative overflow-hidden shrink-0">
         {/* Glow sutil en el fondo del header */}
         <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-purple-500/10 via-indigo-500/5 to-transparent pointer-events-none" />
 
         <div className="relative flex items-center gap-3.5 group-data-[collapsible=icon]:justify-center">
           {/* Contenedor original del logo: fondo limpio/tarjeta con borde y sombra suave */}
-          <div className="size-12 rounded-2xl bg-card/80 dark:bg-card border border-sidebar-border/80 shadow-md p-1.5 flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
+          <div className="size-12 group-data-[collapsible=icon]:size-10 rounded-2xl bg-card/80 dark:bg-card border border-sidebar-border/80 shadow-md p-1.5 flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
             <img
               src="/favicon.png"
               alt="AdeCerebiia"

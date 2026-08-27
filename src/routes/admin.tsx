@@ -108,7 +108,7 @@ function AdminLayout() {
             setSidebarOpen(open);
             writeSidebarOpenPreference(open);
           }}
-          className="min-h-svh"
+          className="min-h-svh max-w-full overflow-x-clip w-full"
         >
           <AdminSidebar
             nav={nav}

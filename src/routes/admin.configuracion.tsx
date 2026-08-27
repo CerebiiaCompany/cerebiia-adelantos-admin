@@ -673,7 +673,7 @@ function ConfiguracionPage() {
                       </Badge>
                     </h2>
                     <p className="admin-section-subtitle text-xs sm:text-sm">
-                      Porcentajes individuales por empresa o empleado con prioridad sobre el 30% global.
+                      Porcentajes individuales por empresa o empleado con prioridad sobre el {Number(config?.porcentaje_maximo_adelanto ?? 30)}% global.
                     </p>
                   </div>
                 </div>

@@ -25,17 +25,17 @@ import { cn } from "@/lib/utils";
 function getNotificationItemIcon(tipo: NotificationType) {
   switch (tipo) {
     case "solicitud_creada":
-      return <Zap className="size-4 text-blue-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
+      return <Zap className="size-4 text-primary shrink-0 mt-0.5" strokeWidth={2.25} />;
     case "empresa_activa":
-      return <Building2 className="size-4 text-blue-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
+      return <Building2 className="size-4 text-primary shrink-0 mt-0.5" strokeWidth={2.25} />;
     case "nomina_cargada":
-      return <FileSpreadsheet className="size-4 text-blue-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
+      return <FileSpreadsheet className="size-4 text-primary shrink-0 mt-0.5" strokeWidth={2.25} />;
     case "solicitud_pendiente":
       return <Clock className="size-4 text-amber-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
     case "adelanto_sin_pago":
       return <CreditCard className="size-4 text-rose-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
     default:
-      return <Coins className="size-4 text-blue-500 shrink-0 mt-0.5" strokeWidth={2.25} />;
+      return <Coins className="size-4 text-primary shrink-0 mt-0.5" strokeWidth={2.25} />;
   }
 }
 
@@ -58,17 +58,12 @@ function formatTimeAgo(isoDate: string): string {
 
 export function NotificationsDropdown() {
   const navigate = useNavigate();
-  const {
-    notifications,
-    unreadCount,
-    deleteNotification,
-    markAllAsRead,
-  } = useNotifications();
-
   const [open, setOpen] = useState(false);
 
+  const { notifications, unreadCount, markAllAsRead, deleteNotification } =
+    useNotifications();
+
   const handleNotificationClick = (item: { id: string; link?: string }) => {
-    // Al dar clic se elimina directamente de la bandeja
     deleteNotification(item.id);
     setOpen(false);
 
@@ -82,17 +77,28 @@ export function NotificationsDropdown() {
     void navigate({ to: "/admin/adelantos" });
   };
 
+  const hasUnread = unreadCount > 0;
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="relative size-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 grid place-items-center hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shadow-sm"
+          className="relative size-10 rounded-2xl bg-primary/10 dark:bg-primary/20 text-primary grid place-items-center hover:bg-primary/15 dark:hover:bg-primary/30 transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           aria-label="Notificaciones"
         >
-          <Bell className="size-5" strokeWidth={2.25} />
-          {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 size-2.5 rounded-full bg-blue-600 ring-2 ring-background" />
+          <Bell
+            className={cn(
+              "size-5 transition-transform",
+              hasUnread && "animate-bell-swing",
+            )}
+            strokeWidth={2.25}
+          />
+          {hasUnread && (
+            <span className="absolute top-2 right-2 flex size-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full size-2.5 bg-primary ring-2 ring-background" />
+            </span>
           )}
         </button>
       </DropdownMenuTrigger>
@@ -100,13 +106,12 @@ export function NotificationsDropdown() {
       <DropdownMenuContent
         align="end"
         sideOffset={10}
-        className="w-[22rem] sm:w-[24rem] max-w-[calc(100vw-2rem)] rounded-3xl p-0 shadow-2xl border border-blue-100/80 dark:border-border/80 overflow-hidden bg-card/98 backdrop-blur-xl animate-in fade-in-0 zoom-in-95"
+        className="w-[22rem] sm:w-[24rem] max-w-[calc(100vw-2rem)] rounded-3xl p-0 shadow-2xl border border-primary/20 dark:border-border/80 overflow-hidden bg-card/98 backdrop-blur-xl animate-in fade-in-0 zoom-in-95"
       >
-        {/* HEADER EXACTO AL DISEÑO DE REFERENCIA */}
-        <div className="p-5 flex items-center justify-between gap-3 border-b border-border/50">
+        {/* HEADER */}
+        <div className="p-5 flex items-center justify-between gap-3 border-b border-border/50 bg-gradient-to-r from-primary/5 via-background to-purple-500/5">
           <div className="flex items-center gap-3.5">
-            {/* Squircle azul con gradiente y campana blanca */}
-            <div className="size-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white grid place-items-center shadow-md shadow-blue-500/20 shrink-0">
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-primary to-purple-700 text-primary-foreground grid place-items-center shadow-md shadow-primary/25 shrink-0">
               <Bell className="size-6" strokeWidth={2.25} />
             </div>
 
@@ -126,7 +131,7 @@ export function NotificationsDropdown() {
             <button
               type="button"
               onClick={markAllAsRead}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors shrink-0"
+              className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors shrink-0 cursor-pointer"
             >
               Marcar todo leído
             </button>
@@ -137,8 +142,8 @@ export function NotificationsDropdown() {
         <div className="max-h-[22rem] overflow-y-auto divide-y divide-border/40">
           {notifications.length === 0 ? (
             <div className="p-8 text-center space-y-2">
-              <div className="size-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-500 grid place-items-center mx-auto">
-                <CheckCircle2 className="size-6 opacity-70" />
+              <div className="size-12 rounded-2xl bg-primary/10 text-primary grid place-items-center mx-auto">
+                <CheckCircle2 className="size-6 opacity-80" />
               </div>
               <p className="text-sm font-semibold text-foreground">Bandeja al día</p>
               <p className="text-xs text-muted-foreground">
@@ -163,8 +168,8 @@ export function NotificationsDropdown() {
                     <h4 className="font-bold text-[14px] text-foreground leading-snug">
                       {item.titulo}
                     </h4>
-                    {/* Punto azul de notificación activa */}
-                    <span className="size-2 rounded-full bg-blue-600 shrink-0" />
+                    {/* Punto morado de notificación activa */}
+                    <span className="size-2 rounded-full bg-primary shrink-0" />
                   </div>
 
                   <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
@@ -180,13 +185,13 @@ export function NotificationsDropdown() {
           )}
         </div>
 
-        {/* FOOTER EXACTO AL DISEÑO DE REFERENCIA */}
+        {/* FOOTER */}
         <div className="p-4 border-t border-border/40 bg-muted/10">
           <Button
             type="button"
             variant="outline"
             onClick={handleViewAll}
-            className="w-full h-11 rounded-2xl border-blue-200 dark:border-blue-900 text-blue-600 hover:text-blue-700 hover:bg-blue-50/60 dark:text-blue-400 dark:hover:bg-blue-950/30 text-sm font-semibold shadow-none transition-colors"
+            className="w-full h-11 rounded-2xl border-primary/30 text-primary hover:text-primary hover:bg-primary/10 text-sm font-semibold shadow-none transition-colors cursor-pointer"
           >
             Ver todas las notificaciones
           </Button>

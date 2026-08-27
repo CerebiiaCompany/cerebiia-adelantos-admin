@@ -3,7 +3,7 @@ import { monthLabel } from "@/lib/adelantos-filters";
 import { AdminMetricCard } from "@/components/admin/admin-metric-card";
 import { AnimatedNumber } from "@/components/admin/animated-number";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Eraser, FileSpreadsheet, Loader2 } from "lucide-react";
+import { CheckCircle2, Eraser, FileSpreadsheet, Loader2, Clock, Eye, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -190,6 +190,15 @@ export function AdelantosFiltersPanel({
   );
 }
 
+function getAdelantosStatIcon(label: string) {
+  const l = label.toLowerCase();
+  if (l.includes("pendiente")) return { icon: Clock, tone: "trending" as const };
+  if (l.includes("revisión") || l.includes("revision")) return { icon: Eye, tone: "building" as const };
+  if (l.includes("aprobado")) return { icon: CheckCircle2, tone: "success" as const };
+  if (l.includes("monto") || l.includes("total a cobrar")) return { icon: Coins, tone: "wallet" as const };
+  return { icon: FileSpreadsheet, tone: "default" as const };
+}
+
 export function AdelantosStat({
   label,
   value,
@@ -207,10 +216,14 @@ export function AdelantosStat({
   delay?: number;
   loading?: boolean;
 }) {
+  const { icon, tone } = getAdelantosStatIcon(label);
+
   return (
     <AdminMetricCard
       label={label}
       accent={highlight}
+      icon={icon}
+      iconTone={tone}
       value={
         loading ? (
           "…"

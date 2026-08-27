@@ -152,6 +152,9 @@
     letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
   }
 
   h1,
@@ -306,7 +309,7 @@
   }
 
   .app-shell-header {
-    @apply sticky top-0 z-30 flex h-16 items-center border-b backdrop-blur-md;
+    @apply sticky top-0 z-20 flex h-16 items-center border-b backdrop-blur-md;
     background-color: hsl(var(--shell-surface) / 0.85);
     border-color: hsl(var(--border) / 0.65);
   }
@@ -1066,9 +1069,36 @@
   }
 }
 
+@keyframes bell-swing {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(14deg);
+  }
+  30% {
+    transform: rotate(-12deg);
+  }
+  45% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+.animate-bell-swing {
+  transform-origin: top center;
+  animation: bell-swing 2.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .admin-wave-layer,
-  .admin-wave-track {
+  .admin-wave-track,
+  .animate-bell-swing {
     animation: none !important;
   }
 }

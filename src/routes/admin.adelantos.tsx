@@ -10,17 +10,14 @@ import { buildSolicitudesApiParams } from "@/lib/solicitudes-filter-params";
 import { listarEmpresas } from "@/lib/api/empresas";
 import type { Empresa } from "@/lib/admin-store";
 import {
-  fetchCuotasSolicitud,
   syncAprobarSolicitud,
   syncMarcarEnRevision,
-  syncPagarCuota,
   syncRechazarSolicitud,
   syncSubirComprobante,
 } from "@/lib/adelantos-api-sync";
 import { getSolicitudAdmin } from "@/lib/api/adelantos";
 import { ApiError } from "@/lib/api/errors";
 import { isBackendUuid } from "@/lib/api/is-api-id";
-import type { CuotaAdelantoApi } from "@/lib/api/types";
 import type { ListSolicitudesAdminParams } from "@/lib/api/types";
 import type { DesgloseAdelanto } from "@/lib/adelanto-calculo";
 import { modoPagoLabel } from "@/lib/adelanto-calculo";
@@ -1385,57 +1382,6 @@ function PagoDialog({
   loading?: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [cuotas, setCuotas] = useState<CuotaAdelantoApi[] | null>(null);
-  const [cuotasError, setCuotasError] = useState<string | null>(null);
-  const [payingCuotaId, setPayingCuotaId] = useState<string | null>(null);
-
-  const reloadCuotas = useCallback(async () => {
-    if (!adelanto || !isBackendUuid(adelanto.id)) {
-      setCuotas(null);
-      return;
-    }
-    const data = await fetchCuotasSolicitud(adelanto.id);
-    setCuotas(data);
-  }, [adelanto]);
-
-  useEffect(() => {
-    if (!adelanto || !isBackendUuid(adelanto.id)) {
-      setCuotas(null);
-      setCuotasError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setCuotas(null);
-    setCuotasError(null);
-
-    void fetchCuotasSolicitud(adelanto.id)
-      .then((data) => {
-        if (!cancelled) setCuotas(data);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setCuotasError(err instanceof ApiError ? err.message : "No se pudo cargar el cronograma.");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [adelanto]);
-
-  const handlePagarCuota = async (cuotaId: string) => {
-    setPayingCuotaId(cuotaId);
-    setCuotasError(null);
-    try {
-      await syncPagarCuota(cuotaId);
-      await reloadCuotas();
-    } catch (err) {
-      setCuotasError(err instanceof ApiError ? err.message : "No se pudo marcar la cuota como pagada.");
-    } finally {
-      setPayingCuotaId(null);
-    }
-  };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -1458,31 +1404,35 @@ function PagoDialog({
 
   return (
     <Dialog open={!!adelanto} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md gap-3 sm:gap-4">
+      <DialogContent className="sm:max-w-xl gap-4 p-6 rounded-3xl">
         <DialogHeader className="pr-8">
-          <DialogTitle>Registrar pago</DialogTitle>
-          <DialogDescription>
-            Adjunta el comprobante de la transferencia para cerrar esta solicitud.
+          <DialogTitle className="text-xl font-bold tracking-tight">Registrar pago</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+            Adjunta el comprobante de la transferencia bancaria para cerrar esta solicitud.
           </DialogDescription>
         </DialogHeader>
         {adelanto && (
-          <form onSubmit={submit} className="space-y-4 sm:space-y-5 min-w-0">
-            <div className="rounded-xl border border-border bg-surface/80 p-3 sm:p-4 min-w-0">
+          <form onSubmit={submit} className="space-y-5 min-w-0">
+            <div className="rounded-2xl border border-border/80 bg-surface/80 p-4 sm:p-5 min-w-0 shadow-xs">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Beneficiario
                   </p>
-                  <p className="text-sm font-semibold truncate mt-1">{adelanto.empleadoNombre}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  <p className="text-base font-medium text-foreground truncate mt-1">
+                    {adelanto.empleadoNombre}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
                     {adelanto.cuenta.banco} · {adelanto.cuenta.numero}
                   </p>
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:block sm:text-right shrink-0 border-t border-border/60 pt-3 sm:border-0 sm:pt-0">
                   <p className="text-xs text-muted-foreground sm:hidden">Total a transferir</p>
                   <div>
-                    <p className="hidden sm:block text-xs text-muted-foreground">Total a recibir</p>
-                    <p className="text-base sm:text-lg font-bold tabular text-primary">
+                    <p className="hidden sm:block text-xs text-muted-foreground font-medium">
+                      Total a recibir
+                    </p>
+                    <p className="text-xl sm:text-2xl font-normal tabular font-mono text-primary tracking-tight">
                       {adelanto.montoNeto != null && adelanto.montoNeto > 0
                         ? formatCOP(adelanto.montoNeto)
                         : desglose
@@ -1490,7 +1440,7 @@ function PagoDialog({
                           : formatCOP(adelanto.monto)}
                     </p>
                     {desglose && (
-                      <p className="text-[11px] text-muted-foreground tabular mt-0.5">
+                      <p className="text-xs text-muted-foreground tabular font-mono mt-0.5">
                         Solicitado {formatCOP(desglose.montoSolicitado)}
                       </p>
                     )}
@@ -1498,102 +1448,62 @@ function PagoDialog({
                 </div>
               </div>
               {desglose && (
-                <div className="mt-3 pt-3 border-t border-border/70 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div>
-                    <p className="text-muted-foreground">Cuotas</p>
-                    <p className="font-semibold tabular mt-0.5">{desglose.numeroCuotas}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Valor cuota</p>
-                    <p className="font-semibold tabular mt-0.5">{formatCOP(desglose.valorCuota)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Comisión total</p>
-                    {desglose.esGratis || desglose.valorComision === 0 ? (
-                      <div className="mt-0.5">
-                        <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          Gratis ($0)
-                        </span>
-                        <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
-                          1er adelanto gratis
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="font-semibold tabular mt-0.5">
-                        {formatCOP(desglose.valorComision)}{" "}
-                        <span className="font-normal text-muted-foreground">
-                          ({formatCOP(desglose.tarifaComision)} × {desglose.numeroCuotas})
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Monto solicitado</p>
-                    <p className="font-semibold tabular mt-0.5">{formatCOP(desglose.montoSolicitado)}</p>
-                  </div>
+                <div className="mt-4 overflow-hidden rounded-xl border border-primary/20 bg-primary/[0.04] dark:bg-primary/[0.08]">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-primary/15 bg-primary/[0.05] dark:bg-primary/[0.12] text-muted-foreground">
+                        <th className="py-2 px-3.5 text-left font-medium text-muted-foreground">Cuotas</th>
+                        <th className="py-2 px-3.5 text-right font-medium text-muted-foreground">Valor cuota</th>
+                        <th className="py-2 px-3.5 text-right font-medium text-muted-foreground">Comisión total</th>
+                        <th className="py-2 px-3.5 text-right font-medium text-muted-foreground">Monto solicitado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="py-2.5 px-3.5 text-left font-normal tabular font-mono text-foreground text-sm">
+                          {desglose.numeroCuotas}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-normal tabular font-mono text-foreground text-sm">
+                          {formatCOP(desglose.valorCuota)}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-normal tabular font-mono text-foreground text-sm">
+                          {desglose.esGratis || desglose.valorComision === 0 ? (
+                            <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs font-normal text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              Gratis ($0)
+                            </span>
+                          ) : (
+                            formatCOP(desglose.valorComision)
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-normal tabular font-mono text-foreground text-sm">
+                          {formatCOP(desglose.montoSolicitado)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
 
-            {cuotas && cuotas.length > 0 && (
-              <div className="rounded-xl border border-border bg-surface/60 p-3 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Cronograma de cuotas
-                </p>
-                <ul className="space-y-1.5 text-sm">
-                  {cuotas.map((c) => (
-                    <li
-                      key={c.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5"
-                    >
-                      <span className="tabular font-medium">
-                        Cuota {c.numero} · corte {c.fecha_corte}
-                      </span>
-                      <span className="tabular text-muted-foreground">{formatCOP(Number(c.monto))}</span>
-                      {c.estado === "pagada" ? (
-                        <span className="text-xs font-medium text-success">Pagada</span>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          disabled={payingCuotaId === c.id}
-                          onClick={() => void handlePagarCuota(c.id)}
-                        >
-                          {payingCuotaId === c.id ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : (
-                            "Marcar pagada"
-                          )}
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {cuotasError && <p className="text-xs text-muted-foreground">{cuotasError}</p>}
-
             <div className="space-y-2 min-w-0">
-              <Label>Comprobante de pago</Label>
+              <Label className="text-xs font-medium">Comprobante de pago</Label>
               <ComprobanteUploadZone file={file} onFileChange={setFile} />
             </div>
 
-            <div className="flex items-start gap-2.5 sm:gap-3 rounded-xl border border-success/25 bg-success/5 px-3 py-2.5 sm:px-4 sm:py-3 min-w-0">
+            <div className="flex items-start gap-3 rounded-2xl border border-success/25 bg-success/5 px-4 py-3 min-w-0">
               <CircleCheck className="size-4 sm:size-5 shrink-0 text-success mt-0.5" />
               <p className="text-xs leading-relaxed text-muted-foreground min-w-0">
                 Al confirmar, la solicitud pasará automáticamente a estado{" "}
-                <span className="font-semibold text-success">Pagado</span> y no podrá modificarse
+                <span className="font-medium text-success">Pagado</span> y no podrá modificarse
                 después.
               </p>
             </div>
 
-            <DialogFooter className="gap-2 pt-1 sm:pt-0">
+            <DialogFooter className="gap-2 pt-2 sm:pt-0">
               <Button
                 type="button"
                 variant="ghost"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto rounded-xl"
                 onClick={() => handleOpenChange(false)}
               >
                 Cancelar
@@ -1601,7 +1511,7 @@ function PagoDialog({
               <Button
                 type="submit"
                 disabled={!file || loading}
-                className="w-full sm:w-auto sm:min-w-[9.5rem]"
+                className="w-full sm:w-auto sm:min-w-[10.5rem] rounded-xl font-semibold shadow-xs cursor-pointer"
               >
                 {loading ? (
                   <>

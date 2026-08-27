@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { EmpleadoAdminApi, User, UserRole } from "@/lib/api/types";
 import { listarTodosEmpleadosAdmin } from "@/lib/api/empleados";
-import { getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
+import { getConfiguracion, getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
 import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from "@/lib/user-roles";
@@ -125,6 +125,7 @@ function UsuariosPage() {
 function EmpleadosNominaSection() {
   const animationKey = useModuleAnimationKey();
   const [empleados, setEmpleados] = useState<EmpleadoAdminApi[]>([]);
+  const [globalPercentage, setGlobalPercentage] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [estadoFiltro, setEstadoFiltro] = useState<"all" | "activo" | "pre_registrado" | "inactivo">(
@@ -143,10 +144,14 @@ function EmpleadosNominaSection() {
     setLoading(true);
     setError(null);
     try {
-      const [empleadosData, persData] = await Promise.all([
+      const [empleadosData, persData, globalConfig] = await Promise.all([
         listarTodosEmpleadosAdmin(),
         getConfiguracionesPersonalizadas().catch(() => []),
+        getConfiguracion().catch(() => null),
       ]);
+
+      const globalPct = Number(globalConfig?.porcentaje_maximo_adelanto ?? 30);
+      setGlobalPercentage(globalPct);
 
       const ruleByEmpleadoId = new Map(
         persData.filter((p) => p.empleado_id).map((p) => [p.empleado_id!, p]),
@@ -160,10 +165,10 @@ function EmpleadosNominaSection() {
         const empCompanyRule = ruleByEmpresaId.get(emp.empresa_id);
         const customRule = empRule || empCompanyRule;
         const pct = empRule
-          ? empRule.porcentaje_maximo_adelanto
+          ? String(Number(empRule.porcentaje_maximo_adelanto))
           : empCompanyRule
-          ? empCompanyRule.porcentaje_maximo_adelanto
-          : emp.porcentaje_efectivo ?? emp.porcentaje_maximo_adelanto ?? "30.00";
+          ? String(Number(empCompanyRule.porcentaje_maximo_adelanto))
+          : String(globalPct);
         const origen: "empleado" | "empresa" | "global" = empRule
           ? "empleado"
           : empCompanyRule
@@ -358,24 +363,27 @@ function EmpleadosNominaSection() {
                       {emp.origen_porcentaje === "empleado" ? (
                         <Badge
                           variant="secondary"
-                          className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs font-semibold"
-                          title="Regla personalizada para este empleado"
+                          className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs font-normal"
+                          title="Regla personalizada para este empleado específico"
                         >
                           <UserIcon className="size-3" />
-                          {emp.porcentaje_efectivo}% Empleado
+                          {Number(emp.porcentaje_efectivo)}% Empleado
                         </Badge>
                       ) : emp.origen_porcentaje === "empresa" ? (
                         <Badge
                           variant="secondary"
-                          className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-semibold"
-                          title="Regla personalizada para la empresa"
+                          className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-normal"
+                          title="Regla personalizada para toda la empresa"
                         >
                           <Building2 className="size-3" />
-                          {emp.porcentaje_efectivo}% Empresa
+                          {Number(emp.porcentaje_efectivo)}% Empresa
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs font-mono" title="Aplica límite global por defecto">
-                          30% (Global)
+                        <span
+                          className="text-muted-foreground text-xs font-mono"
+                          title="Aplica configuración global general"
+                        >
+                          {Number(emp.porcentaje_efectivo || globalPercentage)}% (Global)
                         </span>
                       )}
                     </td>
@@ -505,18 +513,20 @@ function EmpleadosNominaSection() {
                 <div>
                   <dt className="text-xs text-muted-foreground uppercase">% Límite de adelanto</dt>
                   <dd className="mt-1 flex items-center gap-2">
-                    <span className="font-mono font-bold text-sm">{detail.porcentaje_efectivo || 30}%</span>
+                    <span className="font-mono font-normal text-sm">
+                      {Number(detail.porcentaje_efectivo || globalPercentage)}%
+                    </span>
                     {detail.origen_porcentaje === "empleado" ? (
-                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs">
+                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs font-normal">
                         Personalizado Empleado
                       </Badge>
                     ) : detail.origen_porcentaje === "empresa" ? (
-                      <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs">
+                      <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-normal">
                         Personalizado Empresa
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-xs">
-                        Global (30%)
+                      <Badge variant="outline" className="text-xs font-normal">
+                        Global ({Number(detail.porcentaje_efectivo || globalPercentage)}%)
                       </Badge>
                     )}
                   </dd>

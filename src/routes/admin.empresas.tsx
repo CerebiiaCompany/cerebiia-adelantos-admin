@@ -8,7 +8,7 @@ import {
   suspenderEmpresa,
   updateEmpresa,
 } from "@/lib/api/empresas";
-import { getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
+import { getConfiguracion, getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
 import { listarTodaNominaEmpresa } from "@/lib/api/empleados";
 import { getHistorialAdelantosAdmin } from "@/lib/api/admin";
 import { listUsers } from "@/lib/api/users";
@@ -50,6 +50,8 @@ export const Route = createFileRoute("/admin/empresas")({
 type EmpresaRow = EmpresaListItem & {
   adminNombre: string;
   adminEmail: string;
+  porcentaje_maximo_adelanto: string;
+  es_porcentaje_personalizado: boolean;
 };
 
 const emptyForm = {
@@ -65,6 +67,7 @@ function EmpresasPage() {
   const animationKey = useModuleAnimationKey();
   const { data: empleadosMetricas } = useEmpleadosMetricas();
   const [rows, setRows] = useState<EmpresaRow[]>([]);
+  const [globalPercentage, setGlobalPercentage] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -89,11 +92,16 @@ function EmpresasPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [empresas, admins, personalizadas] = await Promise.all([
+      const [empresas, admins, personalizadas, globalConfig] = await Promise.all([
         listarEmpresas(),
         listUsers({ role: "empresa" }),
         getConfiguracionesPersonalizadas().catch(() => []),
+        getConfiguracion().catch(() => null),
       ]);
+
+      const globalPct = Number(globalConfig?.porcentaje_maximo_adelanto ?? 30);
+      setGlobalPercentage(globalPct);
+
       const adminById = new Map(admins.map((u) => [u.id, u]));
       const ruleByEmpresaId = new Map(
         personalizadas
@@ -110,8 +118,8 @@ function EmpresasPage() {
               ...e,
               adminNombre: admin?.full_name ?? "—",
               adminEmail: admin?.email ?? "—",
-              porcentaje_maximo_adelanto: customRule ? customRule.porcentaje_maximo_adelanto : e.porcentaje_maximo_adelanto,
-              es_porcentaje_personalizado: customRule ? true : e.es_porcentaje_personalizado,
+              porcentaje_maximo_adelanto: customRule ? String(Number(customRule.porcentaje_maximo_adelanto)) : String(globalPct),
+              es_porcentaje_personalizado: Boolean(customRule),
             };
           })
           .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)),
@@ -503,15 +511,18 @@ function EmpresasPage() {
                         {row.es_porcentaje_personalizado ? (
                           <Badge
                             variant="secondary"
-                            className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-semibold"
+                            className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30 text-xs font-normal"
                             title="Porcentaje personalizado para toda la empresa"
                           >
                             <SlidersHorizontal className="size-3" />
-                            {row.porcentaje_maximo_adelanto}%
+                            {Number(row.porcentaje_maximo_adelanto)}% Empresa
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs font-mono" title="Aplica límite global por defecto">
-                            30% (Global)
+                          <span
+                            className="text-muted-foreground text-xs font-mono"
+                            title="Aplica configuración global general"
+                          >
+                            {Number(row.porcentaje_maximo_adelanto || globalPercentage)}% (Global)
                           </span>
                         )}
                       </td>

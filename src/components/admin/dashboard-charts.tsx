@@ -109,17 +109,16 @@ export function DashboardTrendChart({
 
     return { totalMonto, totalSolicitudes, totalPagado, efectividad };
   }, [data]);
-
   return (
-    <div className={cn("admin-panel-card relative overflow-hidden transition-all duration-300", className)}>
+    <div className={cn("admin-panel-card bg-primary/[0.035] dark:bg-primary/[0.06] border border-primary/20 shadow-md relative overflow-hidden transition-all duration-300", className)}>
       {/* Background ambient glow */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* HEADER DE LA GRÁFICA */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 relative z-10">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="size-8 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200/60 dark:border-purple-800/40 text-purple-600 dark:text-purple-400 grid place-items-center shadow-xs">
+            <div className="size-8 rounded-xl bg-primary/15 dark:bg-primary/25 border border-primary/30 text-primary grid place-items-center shadow-xs">
               <TrendingUp className="size-4" />
             </div>
             <div>
@@ -134,15 +133,15 @@ export function DashboardTrendChart({
         </div>
 
         {/* SELECTOR DE VISTAS DINÁMICAS (TABS) */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-800/70 rounded-xl border border-slate-200/60 dark:border-slate-700/50 self-start sm:self-auto shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-primary/[0.08] dark:bg-primary/[0.15] rounded-xl border border-primary/20 self-start sm:self-auto shadow-xs">
           <button
             type="button"
             onClick={() => setViewMode("stacked")}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
               viewMode === "stacked"
-                ? "bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 shadow-xs ring-1 ring-black/5"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200",
+                ? "bg-white dark:bg-slate-800 text-primary shadow-xs ring-1 ring-primary/20"
+                : "text-slate-600 dark:text-slate-400 hover:text-primary hover:bg-primary/10",
             )}
             title="Ver desglose por estados"
           >
@@ -156,8 +155,8 @@ export function DashboardTrendChart({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
               viewMode === "area"
-                ? "bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 shadow-xs ring-1 ring-black/5"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200",
+                ? "bg-white dark:bg-slate-800 text-primary shadow-xs ring-1 ring-primary/20"
+                : "text-slate-600 dark:text-slate-400 hover:text-primary hover:bg-primary/10",
             )}
             title="Ver tendencia de volumen continuo"
           >
@@ -171,8 +170,8 @@ export function DashboardTrendChart({
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
               viewMode === "count"
-                ? "bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 shadow-xs ring-1 ring-black/5"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200",
+                ? "bg-white dark:bg-slate-800 text-primary shadow-xs ring-1 ring-primary/20"
+                : "text-slate-600 dark:text-slate-400 hover:text-primary hover:bg-primary/10",
             )}
             title="Ver cantidad de solicitudes"
           >
@@ -184,8 +183,8 @@ export function DashboardTrendChart({
 
       {/* KPI PILLS RESUMEN */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
-        <div className="px-3.5 py-2 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
-          <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+        <div className="px-3.5 py-2 rounded-xl bg-primary/10 border border-primary/20">
+          <p className="text-[11px] font-semibold text-primary uppercase tracking-wider">
             Total Solicitado
           </p>
           <p className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-slate-100 tabular-nums">
@@ -193,7 +192,7 @@ export function DashboardTrendChart({
           </p>
         </div>
 
-        <div className="px-3.5 py-2 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
+        <div className="px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
           <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
             Total Pagado
           </p>
@@ -202,16 +201,16 @@ export function DashboardTrendChart({
           </p>
         </div>
 
-        <div className="px-3.5 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
-          <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+        <div className="px-3.5 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
+          <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
             Solicitudes
           </p>
-          <p className="text-sm sm:text-base font-extrabold text-indigo-700 dark:text-indigo-300 tabular-nums">
+          <p className="text-sm sm:text-base font-extrabold text-purple-700 dark:text-purple-300 tabular-nums">
             {summary.totalSolicitudes} {summary.totalSolicitudes === 1 ? "unidad" : "totales"}
           </p>
         </div>
 
-        <div className="px-3.5 py-2 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40">
+        <div className="px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
           <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
             Tasa de Cobro
           </p>
@@ -567,7 +566,7 @@ export function DashboardEmpresaChart({
   const chartHeight = Math.max(240, data.length * 54 + 52);
 
   return (
-    <div className={cn("admin-panel-card h-full flex flex-col relative overflow-hidden", className)}>
+    <div className={cn("admin-panel-card bg-primary/[0.035] dark:bg-primary/[0.06] border border-primary/20 shadow-md h-full flex flex-col relative overflow-hidden", className)}>
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h2 className="admin-section-title text-lg font-bold text-slate-800 dark:text-slate-100">
