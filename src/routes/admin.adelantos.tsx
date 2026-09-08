@@ -439,7 +439,7 @@ function AdelantosPage() {
                   <th className="admin-table-th text-left hidden md:table-cell">Empresa</th>
                   <th className="admin-table-th text-left">Fecha</th>
                   <th className="admin-table-th text-right">Monto solicitado</th>
-                  <th className="admin-table-th text-right">Total a recibir</th>
+                  <th className="admin-table-th text-right">Monto a transferir</th>
                   <th className="admin-table-th text-center">Cuotas</th>
                   <th className="admin-table-th text-right">Valor cuota</th>
                   <th className="admin-table-th text-right hidden sm:table-cell">Comisión</th>
@@ -510,7 +510,7 @@ function AdelantosPage() {
                 <th className="admin-table-th text-left hidden md:table-cell">Empresa</th>
                 <th className="admin-table-th text-left hidden lg:table-cell">Fecha</th>
                 <th className="admin-table-th text-right">Monto solicitado</th>
-                <th className="admin-table-th text-right">Total a recibir</th>
+                <th className="admin-table-th text-right">Monto a transferir</th>
                 <th className="admin-table-th text-center">Cuotas</th>
                 <th className="admin-table-th text-right">Valor cuota</th>
                 <th className="admin-table-th text-right hidden sm:table-cell">Comisión</th>
@@ -750,7 +750,7 @@ function AdelantoRow({
         <div className="admin-table-cell-money tabular text-primary font-semibold">
           {formatCOP(a.montoNeto ?? desglose.totalARecibir)}
         </div>
-        <div className="admin-table-cell-note">neto al empleado</div>
+        <div className="admin-table-cell-note">valor completo al empleado</div>
       </td>
       <AdelantoCuotasCells desglose={desglose} />
       <td>
@@ -1028,6 +1028,10 @@ function CuentaDialog({
               label="Monto a transferir"
               value={formatCOP(adelanto.montoNeto ?? adelanto.monto)}
             />
+            <p className="mt-3 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-xs text-muted-foreground">
+              El empleado recibe el valor completo del adelanto. La comisión se
+              descuenta aparte por nómina a través de la empresa.
+            </p>
           </div>
         )}
       </DialogContent>
@@ -1430,7 +1434,7 @@ function PagoDialog({
                   <p className="text-xs text-muted-foreground sm:hidden">Total a transferir</p>
                   <div>
                     <p className="hidden sm:block text-xs text-muted-foreground font-medium">
-                      Total a recibir
+                      Monto a transferir
                     </p>
                     <p className="text-xl sm:text-2xl font-normal tabular font-mono text-primary tracking-tight">
                       {adelanto.montoNeto != null && adelanto.montoNeto > 0
@@ -1482,6 +1486,14 @@ function PagoDialog({
                     </tbody>
                   </table>
                 </div>
+              )}
+              {desglose && (
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  Transferirás al empleado el monto completo solicitado. La
+                  empresa descontará por nómina el capital de la cuota más la
+                  comisión correspondiente y luego liquidará ambos valores con
+                  Cerebiia.
+                </p>
               )}
             </div>
 

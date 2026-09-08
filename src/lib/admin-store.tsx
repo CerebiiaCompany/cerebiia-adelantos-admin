@@ -64,7 +64,7 @@ export function calcularTotalAdelantadoEmpleado(empleado: Empleado, adelantos: A
     .reduce((sum, a) => sum + a.monto, 0);
 }
 
-/** Suma lo transferido al empleado (neto tras comisión) en adelantos pagados. */
+/** Suma lo transferido al empleado en adelantos pagados. */
 export function calcularTotalPagadoEmpleado(
   empleado: Empleado,
   adelantos: Adelanto[],
@@ -94,7 +94,7 @@ export type Adelanto = {
   empleadoNombre: string;
   empleadoCedula: string;
   monto: number;
-  /** Neto que recibe el empleado (desde API: monto_neto). */
+  /** Monto que recibe el empleado (desde API: monto_neto / monto_a_recibir). */
   montoNeto?: number;
   /** Tarifa total de comisión (desde API: tarifa_total). */
   tarifaTotal?: number;

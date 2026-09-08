@@ -169,7 +169,7 @@ export function DetalleAdelantosCobroDialog({
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Desglose de nómina, cuotas amortizadas y saldos activos para la empresa en este periodo.
+                  Desglose de nómina con capital + comisión por cuota para la empresa en este periodo.
                 </DialogDescription>
               </div>
             </div>
@@ -450,7 +450,7 @@ export function DetalleAdelantosCobroDialog({
                       <th className="admin-table-th text-center font-medium">Adelantos activos</th>
                       <th className="admin-table-th text-center font-medium">Desglose cuotas</th>
                       <th className="admin-table-th text-right font-medium">Total solicitado</th>
-                      <th className="admin-table-th text-right font-medium">Neto transferido</th>
+                      <th className="admin-table-th text-right font-medium">Transferido al empleado</th>
                       <th className="admin-table-th text-right font-medium">Total a descontar mes</th>
                     </tr>
                   </thead>

@@ -10,13 +10,13 @@ export type DesgloseAdelanto = {
   tarifaComision: number;
   /** Comisión total = tarifa × número de cuotas. */
   valorComision: number;
-  /** Neto que recibe el empleado = monto solicitado − comisión total. */
+  /** Monto que recibe el empleado en su cuenta. */
   totalARecibir: number;
-  /** Cuota de descuento en nómina = monto solicitado ÷ cuotas (sin descontar comisión). */
+  /** Cuota de capital a descontar en nómina = monto solicitado ÷ cuotas. */
   valorCuota: number;
   /** Alias de montoSolicitado (monto total a recuperar vía cuotas). */
   monto: number;
-  /** Alias de montoSolicitado para compatibilidad con flujos de cobro. */
+  /** Total a cobrar a la empresa: capital + comisión. */
   totalAPagar: number;
   /** Indica si la comisión es gratis ($0, ej. primer adelanto). */
   esGratis: boolean;
@@ -56,7 +56,7 @@ export function calcularDesgloseAdelanto(
     const totalARecibir =
       montoNetoReal !== undefined && montoNetoReal > 0
         ? montoNetoReal
-        : Math.max(0, montoSolicitado - valorComision);
+        : montoSolicitado;
     const esGratis = valorComision === 0;
 
     return {
@@ -67,12 +67,12 @@ export function calcularDesgloseAdelanto(
       totalARecibir,
       valorCuota,
       monto: montoSolicitado,
-      totalAPagar: montoSolicitado,
+      totalAPagar: montoSolicitado + valorComision,
       esGratis,
     };
   }
 
-  // 2. Monto neto real igual o mayor al solicitado (sin descuento de comisión -> gratis)
+  // 2. Monto real de desembolso enviado por backend.
   if (montoNetoReal !== undefined && montoNetoReal >= montoSolicitado) {
     return {
       numeroCuotas: cuotas,
@@ -87,7 +87,7 @@ export function calcularDesgloseAdelanto(
     };
   }
 
-  // 3. Monto neto real menor que el solicitado (se descontó comisión específica)
+  // 3. Compatibilidad con datos históricos que aún traigan un neto menor.
   if (montoNetoReal !== undefined && montoNetoReal > 0 && montoNetoReal < montoSolicitado) {
     const valorComision = montoSolicitado - montoNetoReal;
     const tarifaComision = Math.round(valorComision / cuotas);
@@ -99,7 +99,7 @@ export function calcularDesgloseAdelanto(
       totalARecibir: montoNetoReal,
       valorCuota,
       monto: montoSolicitado,
-      totalAPagar: montoSolicitado,
+      totalAPagar: montoSolicitado + valorComision,
       esGratis: valorComision === 0,
     };
   }
@@ -107,7 +107,7 @@ export function calcularDesgloseAdelanto(
   // 4. Fallback con tarifa configurada
   const tarifaComision = parseComisionValor(valorComisionConfig);
   const valorComision = tarifaComision * cuotas;
-  const totalARecibir = Math.max(0, montoSolicitado - valorComision);
+  const totalARecibir = montoSolicitado;
 
   return {
     numeroCuotas: cuotas,
@@ -117,7 +117,7 @@ export function calcularDesgloseAdelanto(
     totalARecibir,
     valorCuota,
     monto: montoSolicitado,
-    totalAPagar: montoSolicitado,
+    totalAPagar: montoSolicitado + valorComision,
     esGratis: valorComision === 0,
   };
 }

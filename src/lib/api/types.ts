@@ -210,7 +210,7 @@ export interface ReferenciaNominaResumenApi {
   /** Desglose por adelanto, ej. "1+1+2". */
   detalle_cuotas: string;
   total_costo_servicio: string;
-  /** Monto solicitado − comisión (tarifa × cuotas). */
+  /** Monto efectivamente transferido al empleado. */
   total_neto_transferido: string;
   total_solicitado: string;
   total_a_descontar_mes: string;

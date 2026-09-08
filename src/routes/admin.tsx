@@ -115,10 +115,6 @@ function AdminLayout() {
             pathname={pathname}
             onLogout={handleLogout}
             loggingOut={loggingOut}
-            onNavigate={() => {
-              setSidebarOpen(false);
-              writeSidebarOpenPreference(false);
-            }}
           />
 
           <SidebarInset className="min-h-svh">

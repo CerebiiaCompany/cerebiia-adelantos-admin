@@ -214,7 +214,7 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                   <thead>
                     <tr className="border-b border-primary/15 bg-primary/[0.06] dark:bg-primary/[0.12] text-muted-foreground">
                       <th className="py-2.5 px-3 sm:px-4 text-left font-medium">Monto solicitado</th>
-                      <th className="py-2.5 px-3 sm:px-4 text-right font-medium">Monto neto</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-right font-medium">Monto a transferir</th>
                       <th className="py-2.5 px-3 sm:px-4 text-right font-medium">Comisión</th>
                       <th className="py-2.5 px-3 sm:px-4 text-center font-medium">Cuotas</th>
                       <th className="py-2.5 px-3 sm:px-4 text-center font-medium">Plazo (días)</th>
@@ -229,8 +229,7 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                         {formatCOP(Number(detalle.monto_neto))}
                       </td>
                       <td className="py-3 px-3 sm:px-4 text-right font-normal tabular font-mono text-foreground text-xs sm:text-sm">
-                        {Number(detalle.monto_neto) >= Number(detalle.monto) ||
-                        (detalle.tarifa_total != null && Number(detalle.tarifa_total) === 0) ? (
+                        {detalle.tarifa_total != null && Number(detalle.tarifa_total) === 0 ? (
                           <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-normal text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             Gratis ($0)
                           </span>
@@ -251,6 +250,14 @@ export function SolicitudDetalleDrawer({ solicitudId, onClose }: Props) {
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              <div className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  El empleado recibe el monto completo del adelanto. La comisión
+                  se cobra aparte por nómina a través de la empresa y hace parte
+                  del valor que la empresa liquida con Cerebiia.
+                </p>
               </div>
 
               {/* MOTIVO DE RECHAZO SI APLICA */}

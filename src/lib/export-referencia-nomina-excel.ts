@@ -76,7 +76,7 @@ export function exportReferenciaNominaExcel(data: ReferenciaNominaApi) {
     "# Adelantos",
     "Total Cuotas",
     "Total Costo de Servicio",
-    "Total Neto Transferido",
+    "Total Transferido al Empleado",
     "Total Solicitado",
     "Total a Descontar Este Mes",
     "Total a Pagar al Proveedor",
@@ -93,7 +93,7 @@ export function exportReferenciaNominaExcel(data: ReferenciaNominaApi) {
         const neto =
           r.total_neto_transferido != null
             ? money(r.total_neto_transferido)
-            : money(r.total_solicitado) - money(r.total_costo_servicio);
+            : money(r.total_solicitado);
         return a + neto;
       }, 0),
     ),
@@ -122,7 +122,7 @@ export function exportReferenciaNominaExcel(data: ReferenciaNominaApi) {
       const netoTransferido =
         r.total_neto_transferido != null
           ? money(r.total_neto_transferido)
-          : money(r.total_solicitado) - money(r.total_costo_servicio);
+          : money(r.total_solicitado);
       return [
         textCell(r.inicio_periodo),
         textCell(r.fin_periodo),

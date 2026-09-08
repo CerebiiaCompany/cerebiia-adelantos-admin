@@ -19,7 +19,7 @@ const COLUMNS = [
   "Empresa",
   "NIT",
   "Monto solicitado",
-  "Total a recibir",
+  "Monto transferido al empleado",
   "Cuotas",
   "Modo de pago",
   "Valor cuota",
@@ -88,7 +88,7 @@ function buildRow(
     Empresa: empresa?.nombre ?? "",
     NIT: empresa?.nit ?? "",
     "Monto solicitado": desglose?.montoSolicitado ?? a.monto,
-    "Total a recibir": a.montoNeto ?? desglose?.totalARecibir ?? a.monto,
+    "Monto transferido al empleado": a.montoNeto ?? desglose?.totalARecibir ?? a.monto,
     Cuotas: desglose?.numeroCuotas ?? a.numeroCuotas,
     "Modo de pago": modoPagoLabel(desglose?.numeroCuotas ?? a.numeroCuotas),
     "Valor cuota": desglose?.valorCuota ?? "",
@@ -202,7 +202,7 @@ export function exportAdelantosExcel(
 
   const moneyCols = new Set([
     "Monto solicitado",
-    "Total a recibir",
+    "Monto transferido al empleado",
     "Valor cuota",
     "Tarifa comisión",
     "Comisión total",
@@ -222,7 +222,7 @@ export function exportAdelantosExcel(
         font: {
           sz: 10,
           color: { rgb: col === "Modo de pago" ? rowFg : "1E293B" },
-          bold: col === "Modo de pago" || col === "Total a recibir",
+          bold: col === "Modo de pago" || col === "Monto transferido al empleado",
         },
         fill: { fgColor: { rgb: rowBg } },
         alignment: {

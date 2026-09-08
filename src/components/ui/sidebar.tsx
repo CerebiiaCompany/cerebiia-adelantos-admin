@@ -106,8 +106,10 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown);
     }, [toggleSidebar]);
 
-    // Auto-cierra el sidebar al hacer scroll en cualquier módulo/página
+    // Auto-cierra el sidebar solo en móvil al hacer scroll fuera del drawer.
     React.useEffect(() => {
+      if (!isMobile) return;
+
       let ticking = false;
 
       const handleScroll = (e: Event) => {
@@ -122,9 +124,6 @@ const SidebarProvider = React.forwardRef<
             if (openMobile) {
               setOpenMobile(false);
             }
-            if (open) {
-              setOpen(false);
-            }
             ticking = false;
           });
           ticking = true;
@@ -133,7 +132,7 @@ const SidebarProvider = React.forwardRef<
 
       window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
       return () => window.removeEventListener("scroll", handleScroll, { capture: true });
-    }, [open, openMobile, setOpen, setOpenMobile]);
+    }, [isMobile, openMobile, setOpenMobile]);
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.

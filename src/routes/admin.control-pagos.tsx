@@ -229,10 +229,7 @@ function ControlPagosPage() {
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => {
-        const cuenta = cuentaPorEmpresa.get(r.empresa_id);
-        const isVerificada =
-          cuenta?.estado === "verificada" || r.cuenta_cobro_estado === "verificada";
-        acc.cobrar += isVerificada ? 0 : (Number(r.total_a_cobrar) || 0);
+        acc.cobrar += Number(r.total_a_cobrar) || 0;
         acc.pagado += Number(r.total_pagado) || 0;
         acc.comisiones += Number(r.comisiones_generadas) || 0;
         acc.rechazadas += r.solicitudes_rechazadas;
@@ -241,7 +238,7 @@ function ControlPagosPage() {
       },
       { cobrar: 0, pagado: 0, comisiones: 0, rechazadas: 0, pagadas: 0 },
     );
-  }, [rows, cuentaPorEmpresa]);
+  }, [rows]);
 
   async function runAction(key: string, fn: () => Promise<unknown>) {
     setActionKey(key);
@@ -546,9 +543,8 @@ function ControlPagosPage() {
                   cuenta?.estado === "verificada" || row.cuenta_cobro_estado === "verificada";
                 const totalCobrar = Number(row.total_a_cobrar) || 0;
                 const estaAlDia =
-                  isVerificada ||
-                  (totalCobrar === 0 &&
-                    (row.solicitudes_pagadas > 0 || row.cuenta_cobro_estado === "verificada"));
+                  totalCobrar === 0 &&
+                  (row.solicitudes_pagadas > 0 || row.cuenta_cobro_estado === "verificada");
 
                 return (
                   <tr key={row.empresa_id} className="hover:bg-muted/30">
@@ -670,13 +666,19 @@ function ControlPagosPage() {
                                   setLiberarModalEmpresa(row);
                                   setLiberarModalOpen(true);
                                 }}
-                                aria-label="Liberar pagos"
+                                aria-label={
+                                  isVerificada
+                                    ? "Liberar cuotas ya verificadas"
+                                    : "Liberar pagos"
+                                }
                               >
                                 <Coins className="size-4 text-emerald-600 dark:text-emerald-400" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs font-medium">
-                              Liberar pagos de cuotas y restaurar saldo
+                              {isVerificada
+                                ? "La cuenta está verificada, pero aún debes liberar las cuotas y restaurar saldo."
+                                : "Liberar pagos de cuotas y restaurar saldo"}
                             </TooltipContent>
                           </Tooltip>
                         ) : null}

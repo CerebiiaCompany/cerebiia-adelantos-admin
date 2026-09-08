@@ -63,7 +63,7 @@ export function parseApiErrorMessage(status: number, body: unknown): string {
         return "La sesión expiró. Se intentará renovar el token; si el error continúa, vuelve a iniciar sesión.";
       }
       if (/monto neto.*mayor a 0/i.test(record.detail)) {
-        return `${record.detail}. Hay solicitudes en la base de datos con monto neto inválido, o la tarifa de comisión configurada deja el neto en cero. Revisa Configuración y los registros en el backend.`;
+        return `${record.detail}. Hay registros históricos inconsistentes en la base de datos. Revisa las solicitudes existentes y la configuración vigente en el backend.`;
       }
       return record.detail;
     }

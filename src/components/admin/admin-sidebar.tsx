@@ -39,7 +39,7 @@ export function AdminSidebar({
   loggingOut,
   onNavigate,
 }: AdminSidebarProps) {
-  const { setOpen, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 
@@ -120,9 +120,10 @@ export function AdminSidebar({
                           if (active && item.to === "/admin") {
                             window.dispatchEvent(new CustomEvent(DASHBOARD_REFRESH_EVENT));
                           }
-                          setOpen(false);
-                          setOpenMobile(false);
-                          onNavigate?.();
+                          if (isMobile) {
+                            setOpenMobile(false);
+                            onNavigate?.();
+                          }
                         }}
                       >
                         {/* Barra indicadora izquierda morada para elemento activo */}
