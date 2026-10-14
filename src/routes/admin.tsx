@@ -6,7 +6,12 @@ import { AdminStoreProvider } from "@/lib/admin-store";
 import { NotificationProvider } from "@/lib/notifications/notification-store";
 import { NotificationToastContainer } from "@/components/admin/notification-toast-container";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { AdminBackground } from "@/components/admin/admin-background";
+
+/** Límite de inactividad de sesión (15 minutos = 900.000 ms - SEG-03) */
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+const LAST_ACTIVITY_KEY = "cerebiia_admin_last_activity";
 import { AdminSidebar, type AdminNavItem } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -78,6 +83,77 @@ function AdminLayout() {
       cancelled = true;
     };
   }, [navigate]);
+
+  // Política de inactividad de sesión (SEG-03: cierre automático tras 15 min de inactividad)
+  useEffect(() => {
+    if (!ready || !user) return;
+
+    let lastThrottled = Date.now();
+    try {
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+    } catch {}
+
+    const registerActivity = () => {
+      const now = Date.now();
+      if (now - lastThrottled > 2000) {
+        lastThrottled = now;
+        try {
+          localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+        } catch {}
+      }
+    };
+
+    const checkInactivity = async () => {
+      let last = lastThrottled;
+      try {
+        const stored = localStorage.getItem(LAST_ACTIVITY_KEY);
+        if (stored) {
+          const parsed = Number(stored);
+          if (Number.isFinite(parsed)) last = Math.max(last, parsed);
+        }
+      } catch {}
+
+      const elapsed = Date.now() - last;
+      if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+        toast.error("Tu sesión ha expirado por 15 minutos de inactividad.");
+        setLoggingOut(true);
+        try {
+          await logout();
+        } finally {
+          navigate({ to: "/login" });
+        }
+      }
+    };
+
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void checkInactivity();
+      }
+    };
+
+    window.addEventListener("mousemove", registerActivity, { passive: true });
+    window.addEventListener("mousedown", registerActivity, { passive: true });
+    window.addEventListener("keydown", registerActivity, { passive: true });
+    window.addEventListener("touchstart", registerActivity, { passive: true });
+    window.addEventListener("scroll", registerActivity, { passive: true });
+    window.addEventListener("click", registerActivity, { passive: true });
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    const interval = window.setInterval(checkInactivity, 15_000);
+
+    return () => {
+      window.removeEventListener("mousemove", registerActivity);
+      window.removeEventListener("mousedown", registerActivity);
+      window.removeEventListener("keydown", registerActivity);
+      window.removeEventListener("touchstart", registerActivity);
+      window.removeEventListener("scroll", registerActivity);
+      window.removeEventListener("click", registerActivity);
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+      window.clearInterval(interval);
+    };
+  }, [ready, user, navigate]);
 
   const handleLogout = async () => {
     setLoggingOut(true);

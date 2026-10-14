@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/lib/api/errors";
 import type { EmpleadoAdminApi, User, UserRole } from "@/lib/api/types";
-import { listarTodosEmpleadosAdmin } from "@/lib/api/empleados";
+import { listarTodosEmpleadosAdmin, reactivarEmpleadoAdmin, suspenderEmpleadoAdmin } from "@/lib/api/empleados";
+import { toast } from "sonner";
 import { getConfiguracion, getConfiguracionesPersonalizadas } from "@/lib/api/configuracion";
 import { reactivarEmpresa, suspenderEmpresa } from "@/lib/api/empresas";
 import { createUser, deactivateUser, getUser, listUsers } from "@/lib/api/users";
@@ -142,6 +143,11 @@ function EmpleadosNominaSection() {
   const [personalizarEmpleadoId, setPersonalizarEmpleadoId] = useState<string | null>(null);
   const [personalizarPct, setPersonalizarPct] = useState<string>("");
 
+  // Modales de Suspender y Reactivar empleado
+  const [suspenderTarget, setSuspenderTarget] = useState<EmpleadoAdminApi | null>(null);
+  const [reactivarTarget, setReactivarTarget] = useState<EmpleadoAdminApi | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -227,6 +233,40 @@ function EmpleadosNominaSection() {
     setPersonalizarEmpleadoId(emp.id);
     setPersonalizarPct(String(emp.porcentaje_efectivo || ""));
     setPersonalizarOpen(true);
+  };
+
+  const handleConfirmSuspender = async () => {
+    if (!suspenderTarget) return;
+    setActionLoading(true);
+    try {
+      await suspenderEmpleadoAdmin(suspenderTarget.id);
+      toast.success(`Empleado ${suspenderTarget.nombre} suspendido correctamente.`);
+      setSuspenderTarget(null);
+      void load();
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "No se pudo suspender al empleado.",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmReactivar = async () => {
+    if (!reactivarTarget) return;
+    setActionLoading(true);
+    try {
+      await reactivarEmpleadoAdmin(reactivarTarget.id);
+      toast.success(`Empleado ${reactivarTarget.nombre} reactivado correctamente.`);
+      setReactivarTarget(null);
+      void load();
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "No se pudo reactivar al empleado.",
+      );
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -458,6 +498,31 @@ function EmpleadosNominaSection() {
                         >
                           <SlidersHorizontal className="size-4" />
                         </Button>
+                        {emp.estado === "inactivo" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-9 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                            onClick={() => setReactivarTarget(emp)}
+                            title={`Reactivar empleado ${emp.nombre}`}
+                            aria-label={`Reactivar empleado ${emp.nombre}`}
+                          >
+                            <UserCheck className="size-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-9 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setSuspenderTarget(emp)}
+                            title={`Suspender empleado ${emp.nombre}`}
+                            aria-label={`Suspender empleado ${emp.nombre}`}
+                          >
+                            <UserX className="size-4" />
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
@@ -578,7 +643,38 @@ function EmpleadosNominaSection() {
                 </div>
               </dl>
 
-              <div className="pt-3 border-t flex justify-end gap-2">
+              <div className="pt-3 border-t flex flex-wrap justify-end gap-2">
+                {detail.estado === "inactivo" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const emp = detail;
+                      setDetail(null);
+                      setReactivarTarget(emp);
+                    }}
+                    className="gap-1.5 text-emerald-600 border-emerald-600/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  >
+                    <UserCheck className="size-3.5" />
+                    Reactivar empleado
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const emp = detail;
+                      setDetail(null);
+                      setSuspenderTarget(emp);
+                    }}
+                    className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <UserX className="size-3.5" />
+                    Suspender empleado
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -596,6 +692,162 @@ function EmpleadosNominaSection() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmación para suspender empleado */}
+      <Dialog
+        open={!!suspenderTarget}
+        onOpenChange={(open) => !open && !actionLoading && setSuspenderTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <UserX className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">¿Suspender empleado?</DialogTitle>
+                <DialogDescription>
+                  Esta acción desactivará el acceso y la capacidad de operar en la plataforma.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {suspenderTarget && (
+            <div className="space-y-3 py-2">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/[0.04] p-3 text-xs text-muted-foreground leading-relaxed">
+                Al suspender a <strong className="text-foreground">{suspenderTarget.nombre}</strong>, su estado pasará a{" "}
+                <span className="font-semibold text-destructive">Suspendido (inactivo)</span>. El empleado no podrá iniciar sesión ni solicitar adelantos de nómina hasta que sea reactivado.
+              </div>
+
+              <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Documento:</span>
+                  <span className="font-medium text-foreground">
+                    {suspenderTarget.tipo_documento?.toUpperCase()} {suspenderTarget.documento}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Empresa:</span>
+                  <span className="font-medium text-foreground">
+                    {suspenderTarget.empresa_nombre || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Estado actual:</span>
+                  <span className="font-medium text-foreground">
+                    {labelEstadoEmpleado(suspenderTarget.estado)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={actionLoading}
+              onClick={() => setSuspenderTarget(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={actionLoading}
+              onClick={handleConfirmSuspender}
+              className="gap-2"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Suspendiendo…
+                </>
+              ) : (
+                <>
+                  <UserX className="size-4" />
+                  Suspender empleado
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmación para reactivar empleado */}
+      <Dialog
+        open={!!reactivarTarget}
+        onOpenChange={(open) => !open && !actionLoading && setReactivarTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                <UserCheck className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">¿Reactivar empleado?</DialogTitle>
+                <DialogDescription>
+                  Esta acción restaurará el acceso del empleado a la plataforma.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {reactivarTarget && (
+            <div className="space-y-3 py-2">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3 text-xs text-muted-foreground leading-relaxed">
+                Al reactivar a <strong className="text-foreground">{reactivarTarget.nombre}</strong>, el empleado recuperará el acceso al portal y podrá solicitar adelantos de nómina según las políticas de su empresa.
+              </div>
+
+              <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Documento:</span>
+                  <span className="font-medium text-foreground">
+                    {reactivarTarget.tipo_documento?.toUpperCase()} {reactivarTarget.documento}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Empresa:</span>
+                  <span className="font-medium text-foreground">
+                    {reactivarTarget.empresa_nombre || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={actionLoading}
+              onClick={() => setReactivarTarget(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={actionLoading}
+              onClick={handleConfirmReactivar}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Reactivando…
+                </>
+              ) : (
+                <>
+                  <UserCheck className="size-4" />
+                  Reactivar empleado
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { AuthUser } from "@/lib/api/types";
 import { SUPER_ADMIN_ROLE } from "@/lib/api/types";
 import { getUserInitials } from "@/lib/theme";
@@ -8,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Shield } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
 
 type AdminAccountDialogProps = {
   user: AuthUser;
@@ -57,6 +58,7 @@ const FIELDS: { key: keyof AuthUser | "role_label"; label: string; format?: (use
 
 export function AdminAccountDialog({ user, open, onOpenChange }: AdminAccountDialogProps) {
   const initials = getUserInitials(user.full_name, user.email);
+  const [showId, setShowId] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,15 +89,37 @@ export function AdminAccountDialog({ user, open, onOpenChange }: AdminAccountDia
 
         <dl className="divide-y divide-border">
           {FIELDS.map(({ key, label, format }) => {
-            const value =
+            const rawValue =
               format?.(user) ??
               (key === "role_label" ? formatRole(user.role) : String(user[key as keyof AuthUser]));
+            const isId = key === "id";
+            const displayValue = isId && !showId ? "••••••••••••••••" : rawValue;
+
             return (
-              <div key={key} className="px-5 py-3.5">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {label}
-                </dt>
-                <dd className="text-sm font-medium text-foreground mt-1 break-all">{value}</dd>
+              <div key={key} className="px-5 py-3.5 flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className={`text-sm font-medium text-foreground mt-1 break-all ${isId && !showId ? "tracking-widest font-mono text-xs text-muted-foreground" : isId ? "font-mono text-xs" : ""}`}>
+                    {displayValue}
+                  </dd>
+                </div>
+                {isId && (
+                  <button
+                    type="button"
+                    onClick={() => setShowId(!showId)}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    title={showId ? "Ocultar ID de usuario" : "Mostrar ID de usuario"}
+                    aria-label={showId ? "Ocultar ID de usuario" : "Mostrar ID de usuario"}
+                  >
+                    {showId ? (
+                      <EyeOff className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}

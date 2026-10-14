@@ -56,3 +56,20 @@ export async function listarTodosEmpleadosAdmin(
 export async function listarTodaNominaEmpresa(empresaId: string): Promise<EmpleadoAdminApi[]> {
   return listarTodosEmpleadosAdmin({ empresa_id: empresaId });
 }
+
+/** Suspende a un empleado (estado -> inactivo). */
+export function suspenderEmpleadoAdmin(empleadoId: string) {
+  return apiRequest(`/empleados/${empleadoId}/suspender/`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
+/** Reactiva a un empleado suspendido (estado inactivo -> activo / pre_registrado). */
+export function reactivarEmpleadoAdmin(empleadoId: string) {
+  return apiRequest(`/empleados/${empleadoId}/reactivar/`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
