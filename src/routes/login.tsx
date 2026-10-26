@@ -4,8 +4,8 @@ import { login, validateSession, AuthError } from "@/lib/auth";
 import {
   clearLoginCredentials,
   readRememberLoginPreference,
-  readSavedLoginCredentials,
-  saveLoginCredentials,
+  readSavedLoginEmail,
+  saveLoginEmail,
 } from "@/lib/login-credentials";
 import { ApiError } from "@/lib/api/errors";
 import { Input } from "@/components/ui/input";
@@ -112,8 +112,8 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState(() => readSavedLoginCredentials()?.email ?? "");
-  const [pass, setPass] = useState(() => readSavedLoginCredentials()?.password ?? "");
+  const [email, setEmail] = useState(() => readSavedLoginEmail() ?? "");
+  const [pass, setPass] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(() => readRememberLoginPreference());
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +151,7 @@ function LoginPage() {
     try {
       await login(email, pass, remember);
       if (remember) {
-        saveLoginCredentials(email, pass);
+        saveLoginEmail(email);
       } else {
         clearLoginCredentials();
       }

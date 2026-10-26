@@ -7,10 +7,47 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { fileURLToPath } from "node:url";
 
-export default defineConfig({
-  nitro: {
-    preset: "vercel",
+// Cabeceras de seguridad (hallazgo ADL-001 del informe de seguridad). TanStack Start
+// inyecta scripts inline para la hidratación del SSR, de ahí 'unsafe-inline' en
+// script-src; aun así no se permite ningún script de origen externo.
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self' https://api-adelantos.cerebiia.com.co wss://api-adelantos.cerebiia.com.co https://*.amazonaws.com",
+    "img-src 'self' data: blob: https://api-adelantos.cerebiia.com.co https://*.amazonaws.com",
+    "frame-src 'self' blob: https://api-adelantos.cerebiia.com.co https://*.amazonaws.com",
+    "media-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "worker-src 'self' blob:",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; "),
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy":
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), interest-cohort=()",
+};
+
+// Ruta propia en lugar de routeRules: el preset vercel de Nitro 3 (beta) emite las
+// rutas de cabeceras sin `continue: true`, lo que detendría el ruteo hacia el SSR.
+// Se declara aparte porque el tipo de `nitro` en @lovable.dev/vite-tanstack-config
+// no incluye la opción `vercel`, aunque Nitro sí la recibe.
+const nitro = {
+  preset: "vercel",
+  vercel: {
+    config: {
+      routes: [{ src: "/(.*)", headers: SECURITY_HEADERS, continue: true }],
+    },
   },
+};
+
+export default defineConfig({
+  nitro,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

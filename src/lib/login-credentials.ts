@@ -1,9 +1,15 @@
 const REMEMBER_KEY = "cerebiia_sa_remember_login";
 const EMAIL_KEY = "cerebiia_sa_login_email";
-const PASSWORD_KEY = "cerebiia_sa_login_password";
+/** Versiones anteriores guardaban aquí la contraseña en texto plano; solo se usa para borrarla. */
+const LEGACY_PASSWORD_KEY = "cerebiia_sa_login_password";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
+}
+
+/** Elimina la contraseña que versiones anteriores dejaron en localStorage. */
+function purgeLegacyPassword(): void {
+  localStorage.removeItem(LEGACY_PASSWORD_KEY);
 }
 
 export function readRememberLoginPreference(): boolean {
@@ -11,22 +17,23 @@ export function readRememberLoginPreference(): boolean {
   return localStorage.getItem(REMEMBER_KEY) === "true";
 }
 
-export function readSavedLoginCredentials(): { email: string; password: string } | null {
-  if (!isBrowser() || !readRememberLoginPreference()) return null;
-
-  const email = localStorage.getItem(EMAIL_KEY);
-  const password = localStorage.getItem(PASSWORD_KEY);
-  if (!email || !password) return null;
-
-  return { email, password };
+/**
+ * "Recordarme" solo conserva el correo. La contraseña de super admin nunca se
+ * persiste en el navegador: cualquier XSS o acceso al equipo la expondría.
+ */
+export function readSavedLoginEmail(): string | null {
+  if (!isBrowser()) return null;
+  purgeLegacyPassword();
+  if (!readRememberLoginPreference()) return null;
+  return localStorage.getItem(EMAIL_KEY);
 }
 
-export function saveLoginCredentials(email: string, password: string): void {
+export function saveLoginEmail(email: string): void {
   if (!isBrowser()) return;
 
+  purgeLegacyPassword();
   localStorage.setItem(REMEMBER_KEY, "true");
   localStorage.setItem(EMAIL_KEY, email.trim());
-  localStorage.setItem(PASSWORD_KEY, password);
 }
 
 export function clearLoginCredentials(): void {
@@ -34,5 +41,5 @@ export function clearLoginCredentials(): void {
 
   localStorage.setItem(REMEMBER_KEY, "false");
   localStorage.removeItem(EMAIL_KEY);
-  localStorage.removeItem(PASSWORD_KEY);
+  purgeLegacyPassword();
 }

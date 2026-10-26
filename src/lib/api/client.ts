@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import { ApiError, parseApiErrorMessage } from "./errors";
+import { ApiError, buildTooManyRequestsMessage, parseApiErrorMessage } from "./errors";
 import { rateLimited, scheduleApiRequest } from "./rate-limit";
 import type { RefreshResponse } from "./types";
 import { clearAuthSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth-storage";
@@ -74,7 +74,11 @@ async function executeRequest<T>(path: string, options: ApiRequestOptions): Prom
   const body = text ? safeJsonParse(text) : null;
 
   if (!response.ok) {
-    throw new ApiError(response.status, parseApiErrorMessage(response.status, body), body);
+    const message =
+      response.status === 429
+        ? buildTooManyRequestsMessage(response.headers.get("Retry-After"))
+        : parseApiErrorMessage(response.status, body);
+    throw new ApiError(response.status, message, body);
   }
 
   return body as T;

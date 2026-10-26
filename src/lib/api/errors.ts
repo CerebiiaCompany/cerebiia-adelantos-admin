@@ -44,6 +44,19 @@ function extractDjangoHtmlError(body: string): string | null {
   return null;
 }
 
+/** Login bloqueado o límite de peticiones alcanzado (hallazgo ADL-002). */
+export function buildTooManyRequestsMessage(retryAfter: string | null): string {
+  const seconds = Number(retryAfter);
+  if (!retryAfter || !Number.isFinite(seconds) || seconds <= 0) {
+    return "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
+  }
+  if (seconds < 60) {
+    return `Demasiados intentos. Intenta de nuevo en ${Math.ceil(seconds)} segundos.`;
+  }
+  const minutes = Math.ceil(seconds / 60);
+  return `Demasiados intentos. Intenta de nuevo en ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
+}
+
 export function parseApiErrorMessage(status: number, body: unknown): string {
   if (typeof body === "string") {
     const djangoMsg = extractDjangoHtmlError(body);
