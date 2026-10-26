@@ -9,22 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
-import { Route as AdminLogrosRouteImport } from './routes/admin.logros'
-import { Route as AdminHistorialAdelantosRouteImport } from './routes/admin.historial-adelantos'
-import { Route as AdminEmpresasRouteImport } from './routes/admin.empresas'
-import { Route as AdminControlPagosRouteImport } from './routes/admin.control-pagos'
-import { Route as AdminConfiguracionRouteImport } from './routes/admin.configuracion'
-import { Route as AdminAuditoriasRouteImport } from './routes/admin.auditorias'
 import { Route as AdminAdelantosRouteImport } from './routes/admin.adelantos'
+import { Route as AdminAuditoriasRouteImport } from './routes/admin.auditorias'
+import { Route as AdminConfiguracionRouteImport } from './routes/admin.configuracion'
+import { Route as AdminControlPagosRouteImport } from './routes/admin.control-pagos'
+import { Route as AdminEmpresasRouteImport } from './routes/admin.empresas'
+import { Route as AdminHistorialAdelantosRouteImport } from './routes/admin.historial-adelantos'
+import { Route as AdminLogrosRouteImport } from './routes/admin.logros'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -32,9 +32,9 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -42,34 +42,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminLogrosRoute = AdminLogrosRouteImport.update({
-  id: '/logros',
-  path: '/logros',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
-  id: '/historial-adelantos',
-  path: '/historial-adelantos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminEmpresasRoute = AdminEmpresasRouteImport.update({
-  id: '/empresas',
-  path: '/empresas',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminControlPagosRoute = AdminControlPagosRouteImport.update({
-  id: '/control-pagos',
-  path: '/control-pagos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminConfiguracionRoute = AdminConfiguracionRouteImport.update({
-  id: '/configuracion',
-  path: '/configuracion',
+const AdminAdelantosRoute = AdminAdelantosRouteImport.update({
+  id: '/adelantos',
+  path: '/adelantos',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAuditoriasRoute = AdminAuditoriasRouteImport.update({
@@ -77,9 +52,34 @@ const AdminAuditoriasRoute = AdminAuditoriasRouteImport.update({
   path: '/auditorias',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAdelantosRoute = AdminAdelantosRouteImport.update({
-  id: '/adelantos',
-  path: '/adelantos',
+const AdminConfiguracionRoute = AdminConfiguracionRouteImport.update({
+  id: '/configuracion',
+  path: '/configuracion',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminControlPagosRoute = AdminControlPagosRouteImport.update({
+  id: '/control-pagos',
+  path: '/control-pagos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEmpresasRoute = AdminEmpresasRouteImport.update({
+  id: '/empresas',
+  path: '/empresas',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHistorialAdelantosRoute = AdminHistorialAdelantosRouteImport.update({
+  id: '/historial-adelantos',
+  path: '/historial-adelantos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLogrosRoute = AdminLogrosRouteImport.update({
+  id: '/logros',
+  path: '/logros',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -177,11 +177,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -191,11 +191,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -205,46 +205,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/usuarios': {
-      id: '/admin/usuarios'
-      path: '/usuarios'
-      fullPath: '/admin/usuarios'
-      preLoaderRoute: typeof AdminUsuariosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/logros': {
-      id: '/admin/logros'
-      path: '/logros'
-      fullPath: '/admin/logros'
-      preLoaderRoute: typeof AdminLogrosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/historial-adelantos': {
-      id: '/admin/historial-adelantos'
-      path: '/historial-adelantos'
-      fullPath: '/admin/historial-adelantos'
-      preLoaderRoute: typeof AdminHistorialAdelantosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/empresas': {
-      id: '/admin/empresas'
-      path: '/empresas'
-      fullPath: '/admin/empresas'
-      preLoaderRoute: typeof AdminEmpresasRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/control-pagos': {
-      id: '/admin/control-pagos'
-      path: '/control-pagos'
-      fullPath: '/admin/control-pagos'
-      preLoaderRoute: typeof AdminControlPagosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/configuracion': {
-      id: '/admin/configuracion'
-      path: '/configuracion'
-      fullPath: '/admin/configuracion'
-      preLoaderRoute: typeof AdminConfiguracionRouteImport
+    '/admin/adelantos': {
+      id: '/admin/adelantos'
+      path: '/adelantos'
+      fullPath: '/admin/adelantos'
+      preLoaderRoute: typeof AdminAdelantosRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/auditorias': {
@@ -254,11 +219,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditoriasRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/adelantos': {
-      id: '/admin/adelantos'
-      path: '/adelantos'
-      fullPath: '/admin/adelantos'
-      preLoaderRoute: typeof AdminAdelantosRouteImport
+    '/admin/configuracion': {
+      id: '/admin/configuracion'
+      path: '/configuracion'
+      fullPath: '/admin/configuracion'
+      preLoaderRoute: typeof AdminConfiguracionRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/control-pagos': {
+      id: '/admin/control-pagos'
+      path: '/control-pagos'
+      fullPath: '/admin/control-pagos'
+      preLoaderRoute: typeof AdminControlPagosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/empresas': {
+      id: '/admin/empresas'
+      path: '/empresas'
+      fullPath: '/admin/empresas'
+      preLoaderRoute: typeof AdminEmpresasRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/historial-adelantos': {
+      id: '/admin/historial-adelantos'
+      path: '/historial-adelantos'
+      fullPath: '/admin/historial-adelantos'
+      preLoaderRoute: typeof AdminHistorialAdelantosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/logros': {
+      id: '/admin/logros'
+      path: '/logros'
+      fullPath: '/admin/logros'
+      preLoaderRoute: typeof AdminLogrosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
   }
